@@ -1,5 +1,3 @@
-import pytest  # noqa: F401
-
 from saddlery.events import (
     AssistantMessage,
     AssistantMessageDelta,
