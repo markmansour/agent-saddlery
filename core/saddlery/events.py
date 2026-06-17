@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Annotated, Literal, Union
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 def _new_id() -> str:
@@ -18,6 +18,10 @@ def _now() -> datetime:
 
 
 class BaseEvent(BaseModel):
+    """Immutable base for all events — append-only, never mutated after construction."""
+
+    model_config = ConfigDict(frozen=True)
+
     id: str = Field(default_factory=_new_id)
     session_id: str
     principal: str
