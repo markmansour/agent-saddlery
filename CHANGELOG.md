@@ -23,6 +23,11 @@ Maintained as work lands — update it in the same commit as the change it descr
   first artifact.
 - **Implementation plan for 0.1**: [`docs/plans/2026-06-16-mar5-echo-loop.md`](docs/plans/2026-06-16-mar5-echo-loop.md)
   — TDD, bite-sized tasks for the echo loop.
+- **0.1 echo loop implemented** (`core/saddlery/`): immutable event models, `Session` + `to_messages()`
+  fold + in-memory `SessionStore`, `LLMProvider` seam + native `AnthropicProvider` (default
+  `claude-haiku-4-5`) + `FakeProvider`, `EventSink`/`CliSink`/`RecordingSink`, `Agent.run()` loop with
+  the always-`RunFinished` error invariant, and the `saddlery` CLI. 16 tests + 1 gated live smoke test.
+  Run `cd core && uv run saddlery` (needs `ANTHROPIC_API_KEY`). ([MAR-5](https://linear.app/mark-mansour/issue/MAR-5))
 - **Project management in [Linear](https://linear.app/mark-mansour/project/agent-saddlery-594c6b585b2b/overview)**:
   project "Agent Saddlery", milestone "Phase 0 — Walking skeleton", and vertical-slice issues
   [MAR-5](https://linear.app/mark-mansour/issue/MAR-5)…[MAR-13](https://linear.app/mark-mansour/issue/MAR-13)
