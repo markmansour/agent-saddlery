@@ -21,6 +21,8 @@ Maintained as work lands — update it in the same commit as the change it descr
   — hand-rolled asyncio core, event-log-as-source-of-truth (Pydantic), an `LLMProvider` seam, an
   `EventSink` transport seam, `principal` threaded through for tenancy. Slice 0.1 (echo loop) is the
   first artifact.
+- **Implementation plan for 0.1**: [`docs/plans/2026-06-16-mar5-echo-loop.md`](docs/plans/2026-06-16-mar5-echo-loop.md)
+  — TDD, bite-sized tasks for the echo loop.
 - **Project management in [Linear](https://linear.app/mark-mansour/project/agent-saddlery-594c6b585b2b/overview)**:
   project "Agent Saddlery", milestone "Phase 0 — Walking skeleton", and vertical-slice issues
   [MAR-5](https://linear.app/mark-mansour/issue/MAR-5)…[MAR-13](https://linear.app/mark-mansour/issue/MAR-13)
