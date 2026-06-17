@@ -5,9 +5,10 @@ run and extended, with multiple frontends (TUI, Web, desktop, IDE) over a shared
 [AG-UI](https://docs.ag-ui.com/introduction) protocol, [MCP](https://modelcontextprotocol.io)
 extensions, and pluggable LLM providers.
 
-> Status: **research & planning complete; Phase 0 design approved, implementation not started.** No
-> application code yet — this repo holds the design research and the
-> [Phase 0 spec](docs/specs/2026-06-16-phase0-core-design.md).
+> Status: **Phase 0 in progress — 0.1 echo loop implemented.** Run the streaming chat CLI with
+> `cd core && uv run saddlery` (needs `ANTHROPIC_API_KEY`). Design in the
+> [Phase 0 spec](docs/specs/2026-06-16-phase0-core-design.md); tasks in
+> [Linear](https://linear.app/mark-mansour/project/agent-saddlery-594c6b585b2b/overview).
 
 ## Architecture (locked decisions)
 

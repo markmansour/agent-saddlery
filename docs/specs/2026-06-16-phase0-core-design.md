@@ -74,8 +74,8 @@ nothing speculative inside them yet.
   `type`) + concrete types: `UserMessage`, `AssistantMessageDelta`, `AssistantMessage`,
   `RunStarted`, `RunFinished`, `ErrorEvent`. Append-only; canonical state.
 - **`session`** — `Session` holds the event log + a pure **`to_messages()` fold** that derives the
-  LLM message list from events. `SessionStore` protocol (`load`/`append`), in-memory impl now;
-  SQLite at 0.8. `principal` on the session.
+  LLM message list from events. `SessionStore` protocol (`get_or_create`; persistence-style
+  `load`/`append` at 0.8), in-memory impl now. `principal` on the session.
 - **`llm`** — `LLMProvider` protocol + `AnthropicProvider` (native `anthropic` SDK, streaming).
   Default model `claude-haiku-4-5` (cheap for testing; configurable on the `Agent`). Provider-specific
   knobs (cache breakpoints; adaptive thinking only on thinking-capable models) live inside the impl.
@@ -88,13 +88,14 @@ nothing speculative inside them yet.
 
 ```python
 class LLMProvider(Protocol):
-    async def stream(self, messages: list[Message], *, tools=None
-                     ) -> AsyncIterator[ProviderDelta]: ...
+    def stream(self, messages: list[Message], *, model: str
+               ) -> AsyncIterator[ProviderDelta]: ...
     # ProviderDelta = TextDelta | (later) ToolCallDelta | Stop/Usage
+    # a `tools` param is added at slice 0.4
 
 class SessionStore(Protocol):
-    async def load(self, session_id) -> Session: ...
-    async def append(self, session_id, event: Event) -> None: ...
+    async def get_or_create(self, session_id, principal) -> Session: ...
+    # persistence-style load/append arrive with the SQLite store at 0.8
 
 class EventSink(Protocol):                       # outbound port (core → consumer)
     async def emit(self, event: Event) -> None: ...
