@@ -26,8 +26,9 @@ Pydantic AI's typed-agent ergonomics on top of LiteLLM.
 Decision **C** (see `docs/specs/2026-06-16-phase0-core-design.md`): pluggability lives in **our own
 `LLMProvider` seam**, not in LiteLLM. Rationale: a unified OpenAI-format layer flattens Claude-specific
 capabilities we want — prompt caching, adaptive thinking, correct thinking-block replay, `count_tokens`.
-- **`AnthropicProvider`** (native `anthropic` SDK) is the first/default impl — Phase 0, streaming,
-  `claude-opus-4-8`, adaptive thinking, prompt caching.
+- **`AnthropicProvider`** (native `anthropic` SDK) is the first/default impl — Phase 0, streaming.
+  Default model `claude-haiku-4-5` (cheap, for testing; switch to Opus/Sonnet for quality). Prompt
+  caching and adaptive thinking on thinking-capable models (Opus / Sonnet 4.6+; Haiku 4.5 has neither).
 - **`OpenAICompatibleProvider`** (one adapter, `base_url` + key) covers ≈ the entire OSS ecosystem
   (Ollama, vLLM, OpenRouter, Together, Groq, …) — added as a fast-follow behind the same seam.
 - **Gateway adapter** (LiteLLM proxy or OpenRouter) — an *additional* `LLMProvider` impl for the 100+
