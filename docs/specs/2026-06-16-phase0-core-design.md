@@ -4,14 +4,15 @@
 - **Date:** 2026-06-16
 - **Scope:** The Phase 0 "walking skeleton" core architecture, with slice **0.1 Echo loop**
   ([MAR-5](https://linear.app/mark-mansour/issue/MAR-5)) as its first artifact.
-- **Linear:** Milestone "Phase 0 — Walking skeleton" (issues MAR-5…MAR-13)
+- **Linear:** Milestone [Phase 0 — Walking skeleton](https://linear.app/mark-mansour/project/agent-saddlery-594c6b585b2b/overview)
+  (issues [MAR-5](https://linear.app/mark-mansour/issue/MAR-5)…[MAR-13](https://linear.app/mark-mansour/issue/MAR-13))
 - **Related research:** `research/reference-designs/openhands.md`, `research/protocols/ag-ui.md`,
   `research/llm-providers.md`, `research/multi-user-tenancy.md`
 
 ## 1. Context & goal
 
 Agent Saddlery is a general-purpose agent harness with a headless Python core and multiple TS
-frontends over the AG-UI protocol (see repo `README.md`). This spec defines the **core skeleton** —
+frontends over the [AG-UI](https://docs.ag-ui.com/introduction) protocol (see repo `README.md`). This spec defines the **core skeleton** —
 a lightly structured architecture designed to extend as later slices/phases land, without big
 rewrites and without over-engineering up front. 0.1 instantiates the skeleton end to end: a streaming
 chat echo loop with no tools.
@@ -37,11 +38,11 @@ chat echo loop with no tools.
 |---|---|---|
 | Build vs buy | **Hand-rolled minimal core**, OpenHands-shaped modules | Learning goal; no framework owns the loop; minimal deps |
 | Scaffolding | **Define seams, fill one** | Lightly structured; later slices fill in, not restructure |
-| State model | **Event log is source of truth, kept lite** | 0.8 replay, audit, and per-`principal` tenancy become fill-ins, not rewrites |
+| State model | **Event log is source of truth, kept light** | 0.8 replay, audit, and per-`principal` tenancy become fill-ins, not rewrites |
 | Event lib | **Pydantic v2** | Events are persisted + wire-serialized + validated + parsed via discriminated union; stack (anthropic SDK, FastAPI, AG-UI) is Pydantic-native. `msgspec` is the escape hatch if serialization is ever a measured bottleneck |
 | Concurrency | **asyncio** from the start | Streaming + future FastAPI server (0.3) + concurrent sessions (Phase 3); sync→async later is a rewrite |
-| Provider | **`LLMProvider` seam we own; `AnthropicProvider` first** | Native SDK keeps prompt caching, adaptive thinking, correct thinking-block replay; pluggability lives in our seam. `OpenAICompatibleProvider` (≈ all OSS) and a gateway adapter are later impls behind the same seam |
-| Default model | `claude-opus-4-8`, adaptive thinking | Project default; configurable on the Agent |
+| Provider | **`LLMProvider` seam we own; `AnthropicProvider` first** | Native SDK keeps prompt caching, adaptive thinking (on capable models), correct thinking-block replay; pluggability lives in our seam. `OpenAICompatibleProvider` (≈ all OSS) and a gateway adapter are later impls behind the same seam |
+| Default model | **`claude-haiku-4-5`** (cheap, for testing; configurable on the Agent) | Save spend during development; switch to Opus/Sonnet for quality. Haiku 4.5 has no adaptive-thinking/effort params, so the provider sets those only on thinking-capable models (Opus / Sonnet 4.6+) |
 | Tenancy | **`principal` on every session + event** now | Cheap now, brutal to retrofit |
 
 ## 4. Repo layout (monorepo)
@@ -76,7 +77,8 @@ nothing speculative inside them yet.
   LLM message list from events. `SessionStore` protocol (`load`/`append`), in-memory impl now;
   SQLite at 0.8. `principal` on the session.
 - **`llm`** — `LLMProvider` protocol + `AnthropicProvider` (native `anthropic` SDK, streaming).
-  Provider-specific knobs (cache breakpoints, adaptive thinking) live inside the impl.
+  Default model `claude-haiku-4-5` (cheap for testing; configurable on the `Agent`). Provider-specific
+  knobs (cache breakpoints; adaptive thinking only on thinking-capable models) live inside the impl.
 - **`agent`** — immutable `Agent` (provider + system prompt). `run(session, sink)` folds → calls
   provider → appends streamed deltas as events → emits them.
 - **`transport`** — `EventSink` protocol (`emit(event)`). 0.1 ships `CliSink` (prints deltas live).
@@ -129,9 +131,9 @@ The event log is the record; the CLI is just a sink subscribed to it. 0.2 swaps 
   (`RunStarted → deltas → AssistantMessage → RunFinished`) and that a `RecordingSink` received them.
   No network. (The seams exist precisely to make this testable.)
 - **Smoke:** one live `AnthropicProvider` test gated behind an API-key env var; off by default in CI.
-- Matches MAR-5's done-check: "a turn produces ordered user→assistant events; tokens stream."
+- Matches [MAR-5](https://linear.app/mark-mansour/issue/MAR-5)'s done-check: "a turn produces ordered user→assistant events; tokens stream."
 
-## 10. 0.1 scope (the first artifact = MAR-5)
+## 10. 0.1 scope (the first artifact = [MAR-5](https://linear.app/mark-mansour/issue/MAR-5))
 
 **In:** `events` (the six types), `session` (in-memory + fold), `LLMProvider` + `AnthropicProvider`,
 `Agent.run`, `CliSink`, `cli` entrypoint, `FakeProvider`/`RecordingSink` for tests, `principal`
@@ -154,3 +156,14 @@ threaded through. **Out:** everything in §2 non-goals.
 - Retries/backoff, `MultiSink` fan-out, pub/sub for late-joining subscribers — when their use case
   arrives (Phase 2+).
 - Python package name `saddlery` (proposed) — confirm at implementation.
+
+## 13. References (third-party software)
+
+- [AG-UI](https://docs.ag-ui.com/introduction) — agent↔UI event protocol
+- [Anthropic Python SDK](https://github.com/anthropics/anthropic-sdk-python) · [Claude API docs](https://docs.claude.com)
+- [Pydantic](https://docs.pydantic.dev/) · [msgspec](https://jcristharif.com/msgspec/) (alternative event lib)
+- [asyncio](https://docs.python.org/3/library/asyncio.html)
+- [FastAPI](https://fastapi.tiangolo.com/) (0.3 server)
+- [OpenHands SDK](https://github.com/OpenHands/agent-sdk) (architecture reference)
+- [LiteLLM](https://github.com/BerriAI/litellm) · [OpenRouter](https://openrouter.ai) (future gateway) · [Ollama](https://ollama.com) · [vLLM](https://docs.vllm.ai) (OSS providers)
+- [SQLite](https://www.sqlite.org/) (0.8 persistence)
