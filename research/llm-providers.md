@@ -22,11 +22,18 @@ Uses `Model` classes for a vendor-SDK-agnostic API; a single agent is portable a
 `pydantic-ai-litellm` integration bridging it to LiteLLM's 100+ providers. Worth knowing if we adopt
 Pydantic AI's typed-agent ergonomics on top of LiteLLM.
 
-## What Agent Saddlery takes
-- **LiteLLM in the Python core** as the provider layer (Phase 0: one provider + streaming; Phase 1+:
-  Router fallback/retry, cost tracking).
-- **LiteLLM callbacks → OpenTelemetry/Langfuse** for tracing (Phase 3).
-- Keep the provider behind our own thin interface so swapping LiteLLM out later stays cheap.
+## What Agent Saddlery takes  *(revised 2026-06-16 — supersedes "LiteLLM in core")*
+Decision **C** (see `docs/specs/2026-06-16-phase0-core-design.md`): pluggability lives in **our own
+`LLMProvider` seam**, not in LiteLLM. Rationale: a unified OpenAI-format layer flattens Claude-specific
+capabilities we want — prompt caching, adaptive thinking, correct thinking-block replay, `count_tokens`.
+- **`AnthropicProvider`** (native `anthropic` SDK) is the first/default impl — Phase 0, streaming,
+  `claude-opus-4-8`, adaptive thinking, prompt caching.
+- **`OpenAICompatibleProvider`** (one adapter, `base_url` + key) covers ≈ the entire OSS ecosystem
+  (Ollama, vLLM, OpenRouter, Together, Groq, …) — added as a fast-follow behind the same seam.
+- **Gateway adapter** (LiteLLM proxy or OpenRouter) — an *additional* `LLMProvider` impl for the 100+
+  long tail and **per-user cost attribution** at the multi-user phase. LiteLLM's value (routing,
+  fallback, cost tracking, OTel callbacks) lands here, as a gateway, not in the core.
+- Because the seam is ours, each of these is a drop-in implementation, never a rewrite.
 
 ## Links
 - LiteLLM repo: https://github.com/BerriAI/litellm · providers: https://docs.litellm.ai/docs/providers

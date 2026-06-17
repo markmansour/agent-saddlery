@@ -10,7 +10,8 @@ Phased order. Each phase ends with a devlog retrospective (blog draft).
   from "deferred" into the multi-user phase (P3). The runtime-abstraction *seam* is designed in at P0.
 
 ## Phase 0 — Walking skeleton (single local user, tenancy-ready)
-Headless Python core: event stream + `step()` agent loop + LiteLLM (one provider, streaming) +
+Headless Python core: event stream + `step()` agent loop + an `LLMProvider` seam with a native
+`AnthropicProvider` (streaming; the survey's "LiteLLM in core" was superseded — see `llm-providers.md`) +
 built-in **file read/write + web search + web fetch + shell** tools. Emit **AG-UI** events. One **TUI**
 (Ink) consuming the stream. **Shell behind a permission gate (ask/allowlist), not a sandbox.**
 Every domain object carries an `owner`/`principal`. Design the **runtime-abstraction seam** (tools
