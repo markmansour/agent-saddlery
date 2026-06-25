@@ -44,7 +44,7 @@ class Agent:
                 parts.append(delta.text)
                 await emit(AssistantMessageDelta(text=delta.text, **meta))
             await emit(AssistantMessage(content="".join(parts), **meta))
-        except Exception as exc:  # noqa: BLE001 - failures are recorded as events
+        except Exception as exc:
             await emit(ErrorEvent(message=f"{type(exc).__name__}: {exc}", **meta))
         finally:
             await emit(RunFinished(**meta))

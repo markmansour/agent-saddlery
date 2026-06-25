@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
-from typing import Annotated, Literal, Union
+from datetime import UTC, datetime
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -14,7 +14,7 @@ def _new_id() -> str:
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 class BaseEvent(BaseModel):
@@ -57,13 +57,6 @@ class ErrorEvent(BaseEvent):
 
 
 Event = Annotated[
-    Union[
-        UserMessage,
-        RunStarted,
-        AssistantMessageDelta,
-        AssistantMessage,
-        RunFinished,
-        ErrorEvent,
-    ],
+    UserMessage | RunStarted | AssistantMessageDelta | AssistantMessage | RunFinished | ErrorEvent,
     Field(discriminator="type"),
 ]
