@@ -31,7 +31,7 @@ def test_events_are_appended_in_order():
     s = Session(session_id="s1", principal="local")
     _user(s, "a")
     _user(s, "b")
-    assert [e.content for e in s.events] == ["a", "b"]
+    assert [e.content for e in s.events if isinstance(e, UserMessage)] == ["a", "b"]
 
 
 async def test_store_get_or_create_returns_same_session():

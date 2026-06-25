@@ -8,8 +8,8 @@ from typing import TYPE_CHECKING
 from saddlery.events import (
     AssistantMessage,
     AssistantMessageDelta,
-    BaseEvent,
     ErrorEvent,
+    Event,
     RunFinished,
     RunStarted,
 )
@@ -30,13 +30,14 @@ class Agent:
     model: str = DEFAULT_MODEL
 
     async def run(self, session: Session, sink: EventSink) -> None:
-        meta = {"session_id": session.session_id, "principal": session.principal}
+        sid = session.session_id
+        principal = session.principal
 
-        async def emit(event: BaseEvent) -> None:
+        async def emit(event: Event) -> None:
             session.append(event)
             await sink.emit(event)
 
-        await emit(RunStarted(**meta))
+        await emit(RunStarted(session_id=sid, principal=principal))
         messages = [
             Message(role="system", content=self.system_prompt),
             *session.to_messages(),
@@ -45,9 +46,19 @@ class Agent:
         try:
             async for delta in self.provider.stream(messages, model=self.model):
                 parts.append(delta.text)
-                await emit(AssistantMessageDelta(text=delta.text, **meta))
-            await emit(AssistantMessage(content="".join(parts), **meta))
+                await emit(
+                    AssistantMessageDelta(session_id=sid, principal=principal, text=delta.text)
+                )
+            await emit(
+                AssistantMessage(session_id=sid, principal=principal, content="".join(parts))
+            )
         except Exception as exc:
-            await emit(ErrorEvent(message=f"{type(exc).__name__}: {exc}", **meta))
+            await emit(
+                ErrorEvent(
+                    session_id=sid,
+                    principal=principal,
+                    message=f"{type(exc).__name__}: {exc}",
+                )
+            )
         finally:
-            await emit(RunFinished(**meta))
+            await emit(RunFinished(session_id=sid, principal=principal))
