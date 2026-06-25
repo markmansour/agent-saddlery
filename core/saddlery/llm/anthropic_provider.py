@@ -6,7 +6,7 @@ thinking-capable models; Haiku 4.5 supports neither, so neither is set here.
 
 from __future__ import annotations
 
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
 
 import anthropic
 
@@ -32,9 +32,7 @@ class AnthropicProvider:
         self._client = client or anthropic.AsyncAnthropic()
         self._max_tokens = max_tokens
 
-    async def stream(
-        self, messages: list[Message], *, model: str
-    ) -> AsyncIterator[ProviderDelta]:
+    async def stream(self, messages: list[Message], *, model: str) -> AsyncIterator[ProviderDelta]:
         system, convo = split_system(messages)
         kwargs: dict = {"model": model, "max_tokens": self._max_tokens, "messages": convo}
         if system is not None:

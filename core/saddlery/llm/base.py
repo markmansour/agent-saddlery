@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import AsyncIterator, Protocol, runtime_checkable
+from collections.abc import AsyncIterator
+from typing import Protocol, runtime_checkable
 
 from pydantic import BaseModel
 
@@ -19,6 +20,4 @@ ProviderDelta = TextDelta
 
 @runtime_checkable
 class LLMProvider(Protocol):
-    def stream(
-        self, messages: list[Message], *, model: str
-    ) -> AsyncIterator[ProviderDelta]: ...
+    def stream(self, messages: list[Message], *, model: str) -> AsyncIterator[ProviderDelta]: ...
