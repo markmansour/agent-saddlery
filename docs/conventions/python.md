@@ -45,8 +45,8 @@ as `Event`, so a new event type must be added to that union to flow through sink
 ## Errors
 
 Failures inside the run loop are recorded as events, not raised to the caller
-(see `Agent.run` in `saddlery/agent.py`). A justified broad `except` carries a
-`# noqa: BLE001` with a one-line reason.
+(see `Agent.run` in `saddlery/agent.py`). A deliberately broad `except` carries a
+one-line comment explaining why.
 
 ## Style
 

@@ -52,7 +52,7 @@ class Agent:
             await emit(
                 AssistantMessage(session_id=sid, principal=principal, content="".join(parts))
             )
-        except Exception as exc:
+        except Exception as exc:  # broad on purpose: failures are recorded as events, not raised
             await emit(
                 ErrorEvent(
                     session_id=sid,
