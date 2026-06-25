@@ -16,6 +16,7 @@ dev = [
     "pytest>=8",
     "pytest-asyncio>=0.24",
     "ruff>=0.6",
+    "ty>=0.0.1",
 ]
 
 [build-system]
@@ -41,3 +42,11 @@ select = ["E", "F", "I", "UP", "B", "SIM", "C4", "N", "PT", "TC", "RUF"]
 
 [tool.ruff.format]
 # Black-compatible defaults; line-length inherited from [tool.ruff].
+
+[tool.ty.environment]
+python-version = "3.12"
+
+[tool.ty.terminal]
+# Fail CI on any warning-level diagnostic, not just errors —
+# this is ty's strictness knob: every diagnostic becomes blocking.
+error-on-warning = true

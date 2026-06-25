@@ -5,12 +5,12 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from saddlery.events import BaseEvent
+    from saddlery.events import Event
 
 
 class RecordingSink:
     def __init__(self) -> None:
-        self.events: list[BaseEvent] = []
+        self.events: list[Event] = []
 
-    async def emit(self, event: BaseEvent) -> None:
+    async def emit(self, event: Event) -> None:
         self.events.append(event)
