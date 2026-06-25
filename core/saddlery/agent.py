@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from saddlery.events import (
     AssistantMessage,
@@ -12,10 +13,12 @@ from saddlery.events import (
     RunFinished,
     RunStarted,
 )
-from saddlery.llm.base import LLMProvider
 from saddlery.messages import Message
-from saddlery.session import Session
-from saddlery.transport.base import EventSink
+
+if TYPE_CHECKING:
+    from saddlery.llm.base import LLMProvider
+    from saddlery.session import Session
+    from saddlery.transport.base import EventSink
 
 DEFAULT_MODEL = "claude-haiku-4-5"
 

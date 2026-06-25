@@ -6,12 +6,16 @@ thinking-capable models; Haiku 4.5 supports neither, so neither is set here.
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
+from typing import TYPE_CHECKING
 
 import anthropic
 
 from saddlery.llm.base import ProviderDelta, TextDelta
-from saddlery.messages import Message
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
+    from saddlery.messages import Message
 
 
 def split_system(messages: list[Message]) -> tuple[str | None, list[dict]]:

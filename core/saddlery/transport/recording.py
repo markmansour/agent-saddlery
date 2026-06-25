@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from saddlery.events import BaseEvent
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from saddlery.events import BaseEvent
 
 
 class RecordingSink:
