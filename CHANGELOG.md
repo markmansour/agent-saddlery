@@ -11,6 +11,12 @@ Maintained as work lands — update it in the same commit as the change it descr
 
 ### 2026-07-02
 
+#### Added
+- **Generated package diagram** [`docs/diagrams/packages-core.md`](docs/diagrams/packages-core.md):
+  `gen_diagrams.py` now writes the [pyreverse](https://pylint.readthedocs.io/en/stable/pyreverse.html)
+  package (module-dependency) view alongside the class diagram from a single pyreverse run.
+  ([MM-35](https://linear.app/mark-mansour/issue/MM-35))
+
 #### Changed
 - **CI actions bumped off deprecated Node 20**: [`actions/checkout`](https://github.com/actions/checkout)
   `v4`→`v7` (all workflows) and [`astral-sh/setup-uv`](https://github.com/astral-sh/setup-uv) `v5`→`v7`

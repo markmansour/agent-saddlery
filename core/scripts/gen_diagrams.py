@@ -99,15 +99,25 @@ def render_class_md(mmd: str) -> str:
     return _wrap_md("Core class diagram", mmd)
 
 
-def _pyreverse_class_mmd() -> str:
-    """Run pyreverse over the saddlery package and return its Mermaid class diagram."""
+def render_package_md(mmd: str) -> str:
+    """Wrap raw pyreverse package Mermaid in a titled, banner-marked markdown page."""
+    return _wrap_md("Core package diagram", mmd)
+
+
+def _pyreverse_mmd() -> tuple[str, str]:
+    """Run pyreverse once over `saddlery`, returning its class and package Mermaid.
+
+    A single run emits both `classes_saddlery.mmd` and `packages_saddlery.mmd`.
+    """
     with tempfile.TemporaryDirectory() as tmp:
         subprocess.run(
             ["pyreverse", "-o", "mmd", "-p", "saddlery", "-d", tmp, "saddlery"],
             cwd=CORE_DIR,
             check=True,
         )
-        return (Path(tmp) / "classes_saddlery.mmd").read_text()
+        classes = (Path(tmp) / "classes_saddlery.mmd").read_text()
+        packages = (Path(tmp) / "packages_saddlery.mmd").read_text()
+        return classes, packages
 
 
 def _group_key(module: str) -> str:
@@ -177,8 +187,10 @@ def _saddlery_class_modules() -> dict[str, str]:
 
 def main() -> None:
     DIAGRAMS_DIR.mkdir(parents=True, exist_ok=True)
-    ordered = reorder_class_diagram(_pyreverse_class_mmd(), _saddlery_class_modules())
+    classes, packages = _pyreverse_mmd()
+    ordered = reorder_class_diagram(classes, _saddlery_class_modules())
     (DIAGRAMS_DIR / "class-core.md").write_text(render_class_md(ordered))
+    (DIAGRAMS_DIR / "packages-core.md").write_text(render_package_md(packages))
     (DIAGRAMS_DIR / "events-er.md").write_text(
         _wrap_md("Core data model (events + messages)", render_er(ER_MODELS))
     )

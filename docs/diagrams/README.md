@@ -5,6 +5,7 @@ Mermaid diagrams for the `saddlery` core. They render inline on GitHub and Linea
 | File | Source |
 |---|---|
 | [class-core.md](class-core.md) | Generated — pyreverse class diagram of `saddlery`. |
+| [packages-core.md](packages-core.md) | Generated — pyreverse package diagram of `saddlery`. |
 | [events-er.md](events-er.md) | Generated — ER diagram of the event models + `Message`. |
 | [echo-loop-sequence.md](echo-loop-sequence.md) | Hand-authored — the 0.1 echo-loop sequence. |
 
