@@ -17,6 +17,12 @@ Maintained as work lands — update it in the same commit as the change it descr
   package (module-dependency) view alongside the class diagram from a single pyreverse run.
   ([MM-35](https://linear.app/mark-mansour/issue/MM-35))
 
+#### Changed
+- **CI actions bumped off deprecated Node 20**: [`actions/checkout`](https://github.com/actions/checkout)
+  `v4`→`v7` (all workflows) and [`astral-sh/setup-uv`](https://github.com/astral-sh/setup-uv) `v5`→`v7`
+  (`python-core.yml`) — both new majors run on Node 24, clearing the GitHub Actions deprecation
+  warnings. ([MM-34](https://linear.app/mark-mansour/issue/MM-34))
+
 ### 2026-06-16
 
 #### Added
