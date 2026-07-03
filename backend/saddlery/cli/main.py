@@ -1,4 +1,4 @@
-"""CLI entrypoint for the 0.1 echo loop."""
+"""CLI entrypoint for the 0.1 echo loop and 0.3 TUI bridge."""
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ import uuid
 import structlog
 
 from saddlery.agent import Agent
+from saddlery.cli.input import read_user_messages_interactive, read_user_messages_json
 from saddlery.events import UserMessage
 from saddlery.llm.anthropic_provider import AnthropicProvider
 from saddlery.logging import configure_logging
@@ -18,6 +19,11 @@ from saddlery.transport.cli import CliSink, LoggingSink
 
 def build_agent() -> Agent:
     return Agent(provider=AnthropicProvider())
+
+
+def _use_json_input() -> bool:
+    """Check if we should read input as JSON (for TUI subprocess mode)."""
+    return "--json-input" in sys.argv
 
 
 async def _amain() -> int:
@@ -32,16 +38,16 @@ async def _amain() -> int:
     agent = build_agent()
     sink = LoggingSink(CliSink())
 
-    print("Agent Saddlery — 0.1 echo loop. Type a message; Ctrl-D to exit.")
-    loop = asyncio.get_running_loop()
+    # Determine input mode: JSON (for TUI) or interactive (for CLI)
+    use_json = _use_json_input()
+    if use_json:
+        input_reader = read_user_messages_json()
+    else:
+        print("Agent Saddlery — 0.1 echo loop. Type a message; Ctrl-D to exit.")
+        input_reader = read_user_messages_interactive()
+
     try:
-        while True:
-            line = await loop.run_in_executor(None, sys.stdin.readline)
-            if not line:  # EOF (Ctrl-D)
-                break
-            text = line.strip()
-            if not text:
-                continue
+        async for text in input_reader:
             session.append(
                 UserMessage(session_id=session.session_id, principal=principal, content=text)
             )
