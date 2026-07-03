@@ -18,6 +18,7 @@ dev = [
     "pytest-asyncio>=0.24",
     "ruff>=0.6",
     "ty>=0.0.1",
+    "pylint>=3",
 ]
 
 [build-system]
