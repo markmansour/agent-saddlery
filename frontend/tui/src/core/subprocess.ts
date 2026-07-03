@@ -36,7 +36,7 @@ export class CoreSubprocess extends EventEmitter {
       stdio: ["pipe", "pipe", "pipe"],
     });
 
-    if (!this.process.stdout || !this.process.stdin) {
+    if (!this.process.stdout || !this.process.stdin || !this.process.stderr) {
       throw new Error("Failed to spawn core process");
     }
 
@@ -55,30 +55,58 @@ export class CoreSubprocess extends EventEmitter {
       }
     });
 
+    // Read stderr for debugging (not emitted, just logged)
+    const stderrReadline = createInterface({
+      input: this.process.stderr,
+      crlfDelay: Infinity,
+    });
+
+    stderrReadline.on("line", (line) => {
+      // Ignore stderr for now; could log to file or emit separate event
+    });
+
     // Handle process errors
     this.process.on("error", (err) => {
-      this.emit("error", err);
+      this.emit("error", new Error(`Core process error: ${err.message}`));
     });
 
     this.process.on("exit", (code) => {
+      if (code !== 0 && code !== null) {
+        this.emit("error", new Error(`Core process exited with code ${code}`));
+      }
       this.emit("closed", code);
     });
 
     // Extract session ID from first event
-    await new Promise<void>((resolve) => {
+    await new Promise<void>((resolve, reject) => {
       const onEvent = (event: CoreEvent) => {
         if (event.event === "session_started" && event.session_id) {
           this.sessionId = event.session_id as string;
           this.removeListener("event", onEvent);
+          this.removeListener("error", onError);
           resolve();
         }
       };
-      this.on("event", onEvent);
-      // Timeout if session doesn't start
-      setTimeout(() => {
+
+      const onError = (err: Error) => {
         this.removeListener("event", onEvent);
-        resolve();
+        this.removeListener("error", onError);
+        reject(err);
+      };
+
+      this.on("event", onEvent);
+      this.on("error", onError);
+
+      // Timeout if session doesn't start
+      const timeoutId = setTimeout(() => {
+        this.removeListener("event", onEvent);
+        this.removeListener("error", onError);
+        reject(new Error("Core process did not start within 5 seconds"));
       }, 5000);
+
+      // Cancel timeout if we resolve/reject
+      this.once("event", () => clearTimeout(timeoutId));
+      this.once("error", () => clearTimeout(timeoutId));
     });
   }
 

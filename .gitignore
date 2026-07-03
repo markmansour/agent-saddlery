@@ -34,3 +34,4 @@ out/
 *.swp
 .idea/
 .vscode/
+node_modules/

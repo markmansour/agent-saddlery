@@ -24,6 +24,8 @@ const ChatApp = () => {
     const initCore = async () => {
       try {
         const core = new CoreSubprocess();
+        setStatus("Starting core...");
+
         await core.start();
         coreRef.current = core;
         setSessionId(core.getSessionId());
@@ -43,7 +45,7 @@ const ChatApp = () => {
             if (lastMsg && lastMsg.role === "assistant") {
               return [
                 ...prev.slice(0, -1),
-                { ...lastMsg, content: prev[prev.length - 1].content + text },
+                { ...lastMsg, content: lastMsg.content + text },
               ];
             }
             return prev;
@@ -77,15 +79,17 @@ const ChatApp = () => {
         });
 
         core.on("error", (err: Error) => {
-          setStatus(`Error: ${err.message}`);
+          const msg = err.message || "Unknown error";
+          setStatus(`Error: ${msg.slice(0, 40)}`);
           setIsRunning(false);
         });
 
         core.on("closed", () => {
-          setStatus("Core process closed");
+          setStatus("Core closed");
         });
       } catch (err) {
-        setStatus(`Failed to start core: ${(err as Error).message}`);
+        const msg = (err as Error).message || "Unknown error";
+        setStatus(`Core error: ${msg.slice(0, 30)}`);
       }
     };
 
@@ -97,7 +101,7 @@ const ChatApp = () => {
         coreRef.current.stop();
       }
     };
-  }, []);
+  }, [assistantBuffer]);
 
   const handleUserMessage = (content: string) => {
     if (isRunning || !coreRef.current) return;
