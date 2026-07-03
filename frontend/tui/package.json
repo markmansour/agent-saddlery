@@ -1,0 +1,25 @@
+{
+  "name": "agent-saddlery-tui",
+  "version": "0.0.1",
+  "description": "Ink TUI for Agent Saddlery — chat interface over AG-UI protocol",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev": "ts-node src/index.tsx",
+    "start": "node dist/index.js"
+  },
+  "keywords": ["agent", "tui", "ink", "react"],
+  "author": "Mark Mansour",
+  "license": "MIT",
+  "dependencies": {
+    "ink": "^4.4.1",
+    "react": "^18.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/react": "^18.2.0",
+    "typescript": "^5.3.0",
+    "ts-node": "^10.9.0"
+  }
+}
