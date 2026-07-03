@@ -11,8 +11,12 @@ from saddlery.transport.agui import (
     ErrorEvent as AgUiErrorEvent,
 )
 from saddlery.transport.base import EventSink
-from saddlery.transport.cli import AgUiSink, CliSink
-from saddlery.transport.recording import AgUiRecordingSink, RecordingSink
+from saddlery.transport.cli import AgUiSink, CliSink, LoggingSink
+from saddlery.transport.recording import (
+    AgUiRecordingSink,
+    LoggingAgUiSink,
+    RecordingSink,
+)
 
 __all__ = [
     "AgUiErrorEvent",
@@ -22,6 +26,8 @@ __all__ = [
     "AgUiSink",
     "CliSink",
     "EventSink",
+    "LoggingAgUiSink",
+    "LoggingSink",
     "RecordingSink",
     "RunFinishEvent",
     "RunStartEvent",

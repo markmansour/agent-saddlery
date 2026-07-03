@@ -5,7 +5,15 @@ from __future__ import annotations
 import sys
 from typing import TYPE_CHECKING, TextIO
 
-from saddlery.events import AssistantMessageDelta, ErrorEvent, Event, RunFinished, RunStarted
+import structlog
+
+from saddlery.events import (
+    AssistantMessageDelta,
+    ErrorEvent,
+    Event,
+    RunFinished,
+    RunStarted,
+)
 from saddlery.transport.base import EventSink
 
 if TYPE_CHECKING:
@@ -28,6 +36,20 @@ class CliSink(EventSink):
         elif isinstance(event, RunFinished):
             self._out.write("\n")
             self._out.flush()
+
+
+class LoggingSink(EventSink):
+    """Logs internal events as structured data, then emits to wrapped sink."""
+
+    def __init__(self, sink: EventSink) -> None:
+        self._sink = sink
+        self._log = structlog.get_logger()
+
+    async def emit(self, event: Event) -> None:
+        # Info level for lifecycle events (start/finish), debug for content
+        level = "info" if event.type in ("run_started", "run_finished") else "debug"
+        self._log.log(level, "event_emitted", event_type=event.type, event=event.model_dump())
+        await self._sink.emit(event)
 
 
 class AgUiSink(EventSink):
