@@ -24,3 +24,10 @@ devlog obligation is tracked automatically, never hand-pasted or forgotten:
   devlog entries: **per phase at a minimum**, plus one for any significant new body of work.
 
 Ratified in [MM-32](https://linear.app/mark-mansour/issue/MM-32).
+
+## Commit conventions
+
+Devlog entries (`research/devlog/**`) are Mark's first-person blog drafts. **Commit devlog
+changes without a `Co-Authored-By` trailer** — the blog carries no AI attribution. This is a
+deliberate exception to the global default (which adds the trailer); it applies to the devlog
+only. Every other commit keeps the standard `Co-Authored-By: Claude …` trailer.
