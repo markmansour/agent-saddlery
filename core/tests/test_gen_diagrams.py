@@ -7,6 +7,7 @@ from scripts.gen_diagrams import (
     _saddlery_class_modules,
     render_class_md,
     render_er,
+    render_package_md,
     reorder_class_diagram,
 )
 
@@ -39,6 +40,14 @@ def test_render_class_md_wraps_in_a_fenced_mermaid_block() -> None:
     out = render_class_md("classDiagram\n  class Agent")
     assert "```mermaid" in out
     assert "classDiagram" in out
+    assert "do not edit" in out.lower()
+    assert out.rstrip().endswith("```")
+
+
+def test_render_package_md_wraps_in_a_fenced_mermaid_block() -> None:
+    out = render_package_md("classDiagram\n  class saddlery")
+    assert "```mermaid" in out
+    assert "# Core package diagram" in out
     assert "do not edit" in out.lower()
     assert out.rstrip().endswith("```")
 
