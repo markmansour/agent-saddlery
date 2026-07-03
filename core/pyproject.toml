@@ -13,9 +13,11 @@ saddlery = "saddlery.cli.main:main"
 
 [dependency-groups]
 dev = [
+    "pre-commit>=4.6.0",
     "pytest>=8",
     "pytest-asyncio>=0.24",
     "ruff>=0.6",
+    "ty>=0.0.1",
 ]
 
 [build-system]
@@ -31,3 +33,21 @@ testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "C4", "N", "PT", "TC", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests favour readability over lint strictness.
+"tests/**" = ["PT", "RUF015"]
+
+[tool.ruff.format]
+# Black-compatible defaults; line-length inherited from [tool.ruff].
+
+[tool.ty.environment]
+python-version = "3.12"
+
+[tool.ty.terminal]
+# Fail CI on any warning-level diagnostic, not just errors —
+# this is ty's strictness knob: every diagnostic becomes blocking.
+error-on-warning = true

@@ -3,19 +3,22 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from saddlery.events import (
     AssistantMessage,
     AssistantMessageDelta,
-    BaseEvent,
     ErrorEvent,
+    Event,
     RunFinished,
     RunStarted,
 )
-from saddlery.llm.base import LLMProvider
 from saddlery.messages import Message
-from saddlery.session import Session
-from saddlery.transport.base import EventSink
+
+if TYPE_CHECKING:
+    from saddlery.llm.base import LLMProvider
+    from saddlery.session import Session
+    from saddlery.transport.base import EventSink
 
 DEFAULT_MODEL = "claude-haiku-4-5"
 
@@ -27,13 +30,14 @@ class Agent:
     model: str = DEFAULT_MODEL
 
     async def run(self, session: Session, sink: EventSink) -> None:
-        meta = {"session_id": session.session_id, "principal": session.principal}
+        sid = session.session_id
+        principal = session.principal
 
-        async def emit(event: BaseEvent) -> None:
+        async def emit(event: Event) -> None:
             session.append(event)
             await sink.emit(event)
 
-        await emit(RunStarted(**meta))
+        await emit(RunStarted(session_id=sid, principal=principal))
         messages = [
             Message(role="system", content=self.system_prompt),
             *session.to_messages(),
@@ -42,9 +46,19 @@ class Agent:
         try:
             async for delta in self.provider.stream(messages, model=self.model):
                 parts.append(delta.text)
-                await emit(AssistantMessageDelta(text=delta.text, **meta))
-            await emit(AssistantMessage(content="".join(parts), **meta))
-        except Exception as exc:  # noqa: BLE001 - failures are recorded as events
-            await emit(ErrorEvent(message=f"{type(exc).__name__}: {exc}", **meta))
+                await emit(
+                    AssistantMessageDelta(session_id=sid, principal=principal, text=delta.text)
+                )
+            await emit(
+                AssistantMessage(session_id=sid, principal=principal, content="".join(parts))
+            )
+        except Exception as exc:  # broad on purpose: failures are recorded as events, not raised
+            await emit(
+                ErrorEvent(
+                    session_id=sid,
+                    principal=principal,
+                    message=f"{type(exc).__name__}: {exc}",
+                )
+            )
         finally:
-            await emit(RunFinished(**meta))
+            await emit(RunFinished(session_id=sid, principal=principal))

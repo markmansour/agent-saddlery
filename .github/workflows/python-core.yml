@@ -1,0 +1,40 @@
+name: Python core
+
+on:
+  push:
+    paths: ["core/**", ".github/workflows/python-core.yml"]
+  pull_request:
+    paths: ["core/**", ".github/workflows/python-core.yml"]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.14"]
+    defaults:
+      run:
+        working-directory: core
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Sync dependencies
+        run: uv sync --all-extras --dev
+
+      - name: ruff format
+        run: uv run ruff format --check .
+
+      - name: ruff check
+        run: uv run ruff check .
+
+      - name: ty
+        run: uv run ty check
+
+      - name: pytest
+        run: uv run pytest -q

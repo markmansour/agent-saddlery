@@ -6,12 +6,16 @@ thinking-capable models; Haiku 4.5 supports neither, so neither is set here.
 
 from __future__ import annotations
 
-from typing import AsyncIterator
+from typing import TYPE_CHECKING
 
 import anthropic
 
 from saddlery.llm.base import ProviderDelta, TextDelta
-from saddlery.messages import Message
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
+    from saddlery.messages import Message
 
 
 def split_system(messages: list[Message]) -> tuple[str | None, list[dict]]:
@@ -32,9 +36,7 @@ class AnthropicProvider:
         self._client = client or anthropic.AsyncAnthropic()
         self._max_tokens = max_tokens
 
-    async def stream(
-        self, messages: list[Message], *, model: str
-    ) -> AsyncIterator[ProviderDelta]:
+    async def stream(self, messages: list[Message], *, model: str) -> AsyncIterator[ProviderDelta]:
         system, convo = split_system(messages)
         kwargs: dict = {"model": model, "max_tokens": self._max_tokens, "messages": convo}
         if system is not None:

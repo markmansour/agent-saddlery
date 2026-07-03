@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Protocol, runtime_checkable
 
-from saddlery.events import AssistantMessage, BaseEvent, UserMessage
+from saddlery.events import AssistantMessage, Event, UserMessage
 from saddlery.messages import Message
 
 
@@ -17,13 +17,13 @@ class Session:
     def __init__(self, session_id: str, principal: str) -> None:
         self.session_id = session_id
         self.principal = principal
-        self._events: list[BaseEvent] = []
+        self._events: list[Event] = []
 
     @property
-    def events(self) -> list[BaseEvent]:
+    def events(self) -> list[Event]:
         return list(self._events)
 
-    def append(self, event: BaseEvent) -> None:
+    def append(self, event: Event) -> None:
         self._events.append(event)
 
     def to_messages(self) -> list[Message]:
