@@ -9,6 +9,14 @@ Maintained as work lands — update it in the same commit as the change it descr
 
 ## [Unreleased]
 
+### 2026-07-02
+
+#### Added
+- **Generated package diagram** [`docs/diagrams/packages-core.md`](docs/diagrams/packages-core.md):
+  `gen_diagrams.py` now writes the [pyreverse](https://pylint.readthedocs.io/en/stable/pyreverse.html)
+  package (module-dependency) view alongside the class diagram from a single pyreverse run.
+  ([MM-35](https://linear.app/mark-mansour/issue/MM-35))
+
 ### 2026-06-16
 
 #### Added
