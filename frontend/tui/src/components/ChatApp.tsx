@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Text, Box } from "ink";
-import MessageHistory from "./MessageHistory";
-import InputBox from "./InputBox";
-import StatusLine from "./StatusLine";
-import { CoreSubprocess } from "../core/subprocess";
+import MessageHistory from "./MessageHistory.js";
+import InputBox from "./InputBox.js";
+import StatusLine from "./StatusLine.js";
+import { CoreSubprocess } from "../core/subprocess.js";
 
 interface Message {
   id: string;
@@ -135,8 +135,8 @@ const ChatApp = () => {
   };
 
   return (
-    <Box flexDirection="column" width={80} height={24}>
-      <Box flexDirection="column" flex={1} borderStyle="round">
+    <Box flexDirection="column">
+      <Box flexDirection="column" marginBottom={1}>
         <MessageHistory messages={messages} />
       </Box>
       <InputBox onSubmit={handleUserMessage} disabled={isRunning} />
