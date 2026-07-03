@@ -38,6 +38,9 @@ isolation → P4 plugin packaging → P5 stretch (ACP, workflows, multi-agent, d
     [Mermaid diagrams](docs/specs/2026-07-02-diagrams-design.md),
     [class-diagram readability & nominal conformance](docs/specs/2026-07-02-class-diagram-readability-design.md).
   - **Plans** ([`docs/plans/`](docs/plans/)) — the step-by-step implementation plan behind each spec.
+  - **ADRs** ([`docs/adr/`](docs/adr/)) — architecture decision records for cross-cutting choices
+    (start at [`docs/adr/README.md`](docs/adr/README.md); first up:
+    [repository layout](docs/adr/0001-repository-layout.md)).
   - **Diagrams** ([`docs/diagrams/`](docs/diagrams/)) — Mermaid class, data-model (ER), and
     echo-loop sequence diagrams (rendered inline).
 - **[`research/`](research/)** — the design library: reference-design teardowns (OpenHands, CrewAI,
