@@ -6,9 +6,10 @@ import sys
 from typing import TextIO
 
 from saddlery.events import AssistantMessageDelta, ErrorEvent, Event, RunFinished
+from saddlery.transport.base import EventSink
 
 
-class CliSink:
+class CliSink(EventSink):
     def __init__(self, out: TextIO = sys.stdout) -> None:
         self._out = out
 

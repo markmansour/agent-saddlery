@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from saddlery.llm.base import ProviderDelta, TextDelta
+from saddlery.llm.base import LLMProvider, ProviderDelta, TextDelta
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from saddlery.messages import Message
 
 
-class FakeProvider:
+class FakeProvider(LLMProvider):
     def __init__(self, chunks: list[str], *, error: Exception | None = None) -> None:
         self._chunks = chunks
         self._error = error
