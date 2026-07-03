@@ -41,7 +41,7 @@ class SessionStore(Protocol):
     async def get_or_create(self, session_id: str, principal: str) -> Session: ...
 
 
-class InMemorySessionStore:
+class InMemorySessionStore(SessionStore):
     def __init__(self) -> None:
         self._sessions: dict[str, Session] = {}
 

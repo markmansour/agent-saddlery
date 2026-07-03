@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 
 import anthropic
 
-from saddlery.llm.base import ProviderDelta, TextDelta
+from saddlery.llm.base import LLMProvider, ProviderDelta, TextDelta
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -26,7 +26,7 @@ def split_system(messages: list[Message]) -> tuple[str | None, list[dict]]:
     return system, convo
 
 
-class AnthropicProvider:
+class AnthropicProvider(LLMProvider):
     def __init__(
         self,
         client: anthropic.AsyncAnthropic | None = None,
