@@ -39,6 +39,8 @@ _GENERATED_BANNER = (
     "Regenerate with `make diagrams`. -->"
 )
 
+GROUP_ORDER: list[str] = ["agent", "llm", "session", "transport", "events", "messages"]
+
 ER_MODELS: list[type[BaseModel]] = [
     BaseEvent,
     UserMessage,
@@ -103,6 +105,58 @@ def _pyreverse_class_mmd() -> str:
             check=True,
         )
         return (Path(tmp) / "classes_saddlery.mmd").read_text()
+
+
+def _group_key(module: str) -> str:
+    """The sub-package under `saddlery` (e.g. 'saddlery.llm.base' -> 'llm')."""
+    prefix = "saddlery."
+    if not module.startswith(prefix):
+        return ""
+    return module[len(prefix) :].split(".")[0]
+
+
+def reorder_class_diagram(mmd: str, class_module: dict[str, str]) -> str:
+    """Reshape pyreverse Mermaid: relationships first, then classes grouped by module.
+
+    Class blocks are ordered by `GROUP_ORDER` (unknown modules last), then by name.
+    Relationship lines keep pyreverse's order and move above the class blocks.
+    """
+    lines = mmd.splitlines()
+    blocks: list[tuple[str, list[str]]] = []
+    rels: list[str] = []
+    i = 0
+    while i < len(lines) and lines[i].strip() != "classDiagram":
+        i += 1
+    i += 1  # skip the header
+    while i < len(lines):
+        line = lines[i]
+        match = re.match(r"\s*class\s+(\w+)", line)
+        if match:
+            block = [line]
+            i += 1
+            if "{" in line and "}" not in line:
+                while i < len(lines) and "}" not in lines[i]:
+                    block.append(lines[i])
+                    i += 1
+                if i < len(lines):
+                    block.append(lines[i])
+                    i += 1
+            blocks.append((match.group(1), block))
+        elif line.strip():
+            rels.append(line)
+            i += 1
+        else:
+            i += 1
+
+    def rank(name: str) -> int:
+        key = _group_key(class_module.get(name, ""))
+        return GROUP_ORDER.index(key) if key in GROUP_ORDER else len(GROUP_ORDER)
+
+    blocks.sort(key=lambda nb: (rank(nb[0]), nb[0]))
+    out = ["classDiagram", *rels]
+    for _, block in blocks:
+        out.extend(block)
+    return "\n".join(out) + "\n"
 
 
 def main() -> None:
