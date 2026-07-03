@@ -79,7 +79,7 @@ class LoggingSink(EventSink):
         level = "info" if event.type in ("run_started", "run_finished") else "debug"
         self._log.log(level, "event_emitted", 
                         event_type=event.type,
-                        event=event.model_dump())  # Full JSON
+                        event_data=event.model_dump())  # Full JSON
         await self._sink.emit(event)
 ```
 
@@ -101,7 +101,7 @@ class LoggingAgUiSink(AgUiEventSink):
         level = "info" if event.type in ("RUN_START", "RUN_FINISH") else "debug"
         self._log.log(level, "agui_event_emitted",
                         agui_type=event.type,
-                        event=event.model_dump())  # Full JSON
+                        event_data=event.model_dump())  # Full JSON
         await self._sink.emit(event)
 ```
 
@@ -137,24 +137,24 @@ async def _amain() -> int:
 
 ```
 2026-07-03 10:45:12 [INFO] session_started session_id='a1b2c3' principal='local'
-2026-07-03 10:45:12 [INFO] event_emitted event_type='run_started' event={'id': 'xyz', 'session_id': 'a1b2c3', 'principal': 'local', 'timestamp': '2026-07-03T10:45:12Z', 'type': 'run_started'}
-2026-07-03 10:45:12 [INFO] agui_event_emitted agui_type='RUN_START' event={'type': 'RUN_START'}
-2026-07-03 10:45:13 [DEBUG] event_emitted event_type='assistant_message_delta' event={'id': 'abc', 'session_id': 'a1b2c3', 'principal': 'local', 'timestamp': '2026-07-03T10:45:13Z', 'type': 'assistant_message_delta', 'text': 'Hello'}
-2026-07-03 10:45:13 [DEBUG] agui_event_emitted agui_type='TEXT_MESSAGE_CONTENT' event={'type': 'TEXT_MESSAGE_CONTENT', 'content': 'Hello'}
-2026-07-03 10:45:13 [INFO] event_emitted event_type='run_finished' event={'id': 'def', 'session_id': 'a1b2c3', 'principal': 'local', 'timestamp': '2026-07-03T10:45:13Z', 'type': 'run_finished'}
-2026-07-03 10:45:13 [INFO] agui_event_emitted agui_type='RUN_FINISH' event={'type': 'RUN_FINISH'}
+2026-07-03 10:45:12 [INFO] event_emitted event_type='run_started' event_data={'id': 'xyz', 'session_id': 'a1b2c3', 'principal': 'local', 'timestamp': '2026-07-03T10:45:12Z', 'type': 'run_started'}
+2026-07-03 10:45:12 [INFO] agui_event_emitted agui_type='RUN_START' event_data={'type': 'RUN_START'}
+2026-07-03 10:45:13 [DEBUG] event_emitted event_type='assistant_message_delta' event_data={'id': 'abc', 'session_id': 'a1b2c3', 'principal': 'local', 'timestamp': '2026-07-03T10:45:13Z', 'type': 'assistant_message_delta', 'text': 'Hello'}
+2026-07-03 10:45:13 [DEBUG] agui_event_emitted agui_type='TEXT_MESSAGE_CONTENT' event_data={'type': 'TEXT_MESSAGE_CONTENT', 'content': 'Hello'}
+2026-07-03 10:45:13 [INFO] event_emitted event_type='run_finished' event_data={'id': 'def', 'session_id': 'a1b2c3', 'principal': 'local', 'timestamp': '2026-07-03T10:45:13Z', 'type': 'run_finished'}
+2026-07-03 10:45:13 [INFO] agui_event_emitted agui_type='RUN_FINISH' event_data={'type': 'RUN_FINISH'}
 ```
 
 ### Prod JSON (for aggregation)
 
 ```json
 {"timestamp": "2026-07-03T10:45:12Z", "level": "info", "event": "session_started", "session_id": "a1b2c3", "principal": "local"}
-{"timestamp": "2026-07-03T10:45:12Z", "level": "info", "event": "event_emitted", "event_type": "run_started", "event": {"id": "xyz", "session_id": "a1b2c3", "principal": "local", "timestamp": "2026-07-03T10:45:12Z", "type": "run_started"}}
-{"timestamp": "2026-07-03T10:45:12Z", "level": "info", "event": "agui_event_emitted", "agui_type": "RUN_START", "event": {"type": "RUN_START"}}
-{"timestamp": "2026-07-03T10:45:13Z", "level": "debug", "event": "event_emitted", "event_type": "assistant_message_delta", "event": {"id": "abc", "session_id": "a1b2c3", "principal": "local", "timestamp": "2026-07-03T10:45:13Z", "type": "assistant_message_delta", "text": "Hello"}}
-{"timestamp": "2026-07-03T10:45:13Z", "level": "debug", "event": "agui_event_emitted", "agui_type": "TEXT_MESSAGE_CONTENT", "event": {"type": "TEXT_MESSAGE_CONTENT", "content": "Hello"}}
-{"timestamp": "2026-07-03T10:45:13Z", "level": "info", "event": "event_emitted", "event_type": "run_finished", "event": {"id": "def", "session_id": "a1b2c3", "principal": "local", "timestamp": "2026-07-03T10:45:13Z", "type": "run_finished"}}
-{"timestamp": "2026-07-03T10:45:13Z", "level": "info", "event": "agui_event_emitted", "agui_type": "RUN_FINISH", "event": {"type": "RUN_FINISH"}}
+{"timestamp": "2026-07-03T10:45:12Z", "level": "info", "event": "event_emitted", "event_type": "run_started", "event_data": {"id": "xyz", "session_id": "a1b2c3", "principal": "local", "timestamp": "2026-07-03T10:45:12Z", "type": "run_started"}}
+{"timestamp": "2026-07-03T10:45:12Z", "level": "info", "event": "agui_event_emitted", "agui_type": "RUN_START", "event_data": {"type": "RUN_START"}}
+{"timestamp": "2026-07-03T10:45:13Z", "level": "debug", "event": "event_emitted", "event_type": "assistant_message_delta", "event_data": {"id": "abc", "session_id": "a1b2c3", "principal": "local", "timestamp": "2026-07-03T10:45:13Z", "type": "assistant_message_delta", "text": "Hello"}}
+{"timestamp": "2026-07-03T10:45:13Z", "level": "debug", "event": "agui_event_emitted", "agui_type": "TEXT_MESSAGE_CONTENT", "event_data": {"type": "TEXT_MESSAGE_CONTENT", "content": "Hello"}}
+{"timestamp": "2026-07-03T10:45:13Z", "level": "info", "event": "event_emitted", "event_type": "run_finished", "event_data": {"id": "def", "session_id": "a1b2c3", "principal": "local", "timestamp": "2026-07-03T10:45:13Z", "type": "run_finished"}}
+{"timestamp": "2026-07-03T10:45:13Z", "level": "info", "event": "agui_event_emitted", "agui_type": "RUN_FINISH", "event_data": {"type": "RUN_FINISH"}}
 ```
 
 ## 6. Rollout Plan

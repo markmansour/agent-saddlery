@@ -42,6 +42,9 @@ class LoggingAgUiSink:
 
     async def emit(self, event: AgUiEvent) -> None:
         # Info level for lifecycle events, debug for content
-        level = "info" if event.type in ("RUN_START", "RUN_FINISH") else "debug"
-        self._log.log(level, "agui_event_emitted", agui_type=event.type, event=event.model_dump())
+        event_dump = event.model_dump()
+        if event.type in ("RUN_START", "RUN_FINISH"):
+            self._log.info("agui_event_emitted", agui_type=event.type, event_data=event_dump)
+        else:
+            self._log.debug("agui_event_emitted", agui_type=event.type, event_data=event_dump)
         await self._sink.emit(event)
