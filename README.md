@@ -28,6 +28,17 @@ isolation → P4 plugin packaging → P5 stretch (ACP, workflows, multi-agent, d
 
 ## Repository layout
 
+- **[`core/`](core/)** — the headless Python package (`saddlery`): typed event stream, session, the
+  `LLMProvider` / `EventSink` / `SessionStore` seams, transport (CLI now, AG-UI later), and the CLI
+  entrypoint. Coding standards in [`docs/conventions/python.md`](docs/conventions/python.md).
+- **[`docs/`](docs/)** — design docs for the build:
+  - **Specs** ([`docs/specs/`](docs/specs/)) — [Phase 0 core](docs/specs/2026-06-16-phase0-core-design.md),
+    [Python standards & enforcement](docs/specs/2026-06-24-python-standards-design.md),
+    [Mermaid diagrams](docs/specs/2026-07-02-diagrams-design.md),
+    [class-diagram readability & nominal conformance](docs/specs/2026-07-02-class-diagram-readability-design.md).
+  - **Plans** ([`docs/plans/`](docs/plans/)) — the step-by-step implementation plan behind each spec.
+  - **Diagrams** ([`docs/diagrams/`](docs/diagrams/)) — Mermaid class, data-model (ER), and
+    echo-loop sequence diagrams (rendered inline).
 - **[`research/`](research/)** — the design library: reference-design teardowns (OpenHands, CrewAI,
   Goose, Claude Code), protocol notes (MCP, AG-UI, ACP, plugins), security (sandboxing, prompt
   injection, permissions & secrets), multi-user tenancy, LLM providers, a devlog, and source papers.
