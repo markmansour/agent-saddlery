@@ -4,6 +4,18 @@
 
 ```mermaid
 classDiagram
+  AssistantMessage --|> BaseEvent
+  AssistantMessageDelta --|> BaseEvent
+  ErrorEvent --|> BaseEvent
+  RunFinished --|> BaseEvent
+  RunStarted --|> BaseEvent
+  UserMessage --|> BaseEvent
+  AnthropicProvider --|> LLMProvider
+  FakeProvider --|> LLMProvider
+  InMemorySessionStore --|> SessionStore
+  CliSink --|> EventSink
+  RecordingSink --|> EventSink
+  Agent --> LLMProvider : provider
   class Agent {
     model : str
     provider
@@ -12,6 +24,38 @@ classDiagram
   }
   class AnthropicProvider {
     stream(messages: list[Message]) AsyncIterator[ProviderDelta]
+  }
+  class FakeProvider {
+    stream(messages: list[Message]) AsyncIterator[ProviderDelta]
+  }
+  class LLMProvider {
+    stream(messages: list[Message]) AsyncIterator[ProviderDelta]
+  }
+  class TextDelta {
+    text : str
+  }
+  class InMemorySessionStore {
+    get_or_create(session_id: str, principal: str) Session
+  }
+  class Session {
+    events : list[Event]
+    principal : str
+    session_id : str
+    append(event: Event) None
+    to_messages() list[Message]
+  }
+  class SessionStore {
+    get_or_create(session_id: str, principal: str) Session
+  }
+  class CliSink {
+    emit(event: Event) None
+  }
+  class EventSink {
+    emit(event: Event) None
+  }
+  class RecordingSink {
+    events : list[Event]
+    emit(event: Event) None
   }
   class AssistantMessage {
     content : str
@@ -28,32 +72,9 @@ classDiagram
     session_id : str
     timestamp : Optional[datetime]
   }
-  class CliSink {
-    emit(event: Event) None
-  }
   class ErrorEvent {
     message : str
     type : Literal['error']
-  }
-  class EventSink {
-    emit(event: Event) None
-  }
-  class FakeProvider {
-    stream(messages: list[Message]) AsyncIterator[ProviderDelta]
-  }
-  class InMemorySessionStore {
-    get_or_create(session_id: str, principal: str) Session
-  }
-  class LLMProvider {
-    stream(messages: list[Message]) AsyncIterator[ProviderDelta]
-  }
-  class Message {
-    content : str
-    role : Literal
-  }
-  class RecordingSink {
-    events : list[Event]
-    emit(event: Event) None
   }
   class RunFinished {
     type : Literal['run_finished']
@@ -61,28 +82,12 @@ classDiagram
   class RunStarted {
     type : Literal['run_started']
   }
-  class Session {
-    events : list[Event]
-    principal : str
-    session_id : str
-    append(event: Event) None
-    to_messages() list[Message]
-  }
-  class SessionStore {
-    get_or_create(session_id: str, principal: str) Session
-  }
-  class TextDelta {
-    text : str
-  }
   class UserMessage {
     content : str
     type : Literal['user_message']
   }
-  AssistantMessage --|> BaseEvent
-  AssistantMessageDelta --|> BaseEvent
-  ErrorEvent --|> BaseEvent
-  RunFinished --|> BaseEvent
-  RunStarted --|> BaseEvent
-  UserMessage --|> BaseEvent
-  Agent --> LLMProvider : provider
+  class Message {
+    content : str
+    role : Literal
+  }
 ```
