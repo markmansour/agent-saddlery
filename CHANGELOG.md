@@ -9,6 +9,16 @@ Maintained as work lands — update it in the same commit as the change it descr
 
 ## [Unreleased]
 
+### 2026-07-03
+
+#### Changed
+- **Repository layout: `core/` → `backend/`** ([ADR-0001](docs/adr/0001-repository-layout.md),
+  [MM-36](https://linear.app/mark-mansour/issue/MM-36)). Renamed the Python project directory; the
+  `saddlery` package, its imports, and `uv.lock` are unchanged (moved, not regenerated). Updated the
+  CI `paths:` filter + `working-directory`, `.pre-commit-config.yaml`, `Makefile`, and the
+  `gen_diagrams.py` banner/path constants; regenerated the diagrams. Added a [`frontend/`](frontend/)
+  sibling (placeholder) to set the `backend/` + `frontend/` convention before the first TS frontend.
+
 ### 2026-07-02
 
 #### Added

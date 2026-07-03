@@ -47,6 +47,10 @@ chat echo loop with no tools.
 
 ## 4. Repo layout (monorepo)
 
+> **Superseded (2026-07-03):** `core/` → `backend/` and `frontends/` → `frontend/` per
+> [ADR-0001](../adr/0001-repository-layout.md) ([MM-33](https://linear.app/mark-mansour/issue/MM-33)).
+> The tree below is the original Phase 0 layout, kept as a point-in-time record.
+
 ```
 agent-saddlery/
   core/                    # Python project (pyproject.toml)

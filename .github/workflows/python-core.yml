@@ -2,9 +2,9 @@ name: Python core
 
 on:
   push:
-    paths: ["core/**", ".github/workflows/python-core.yml"]
+    paths: ["backend/**", ".github/workflows/python-core.yml"]
   pull_request:
-    paths: ["core/**", ".github/workflows/python-core.yml"]
+    paths: ["backend/**", ".github/workflows/python-core.yml"]
 
 jobs:
   check:
@@ -15,7 +15,7 @@ jobs:
         python-version: ["3.12", "3.14"]
     defaults:
       run:
-        working-directory: core
+        working-directory: backend
     steps:
       - uses: actions/checkout@v7
 
