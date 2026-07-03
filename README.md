@@ -5,8 +5,9 @@ run and extended, with multiple frontends (TUI, Web, desktop, IDE) over a shared
 [AG-UI](https://docs.ag-ui.com/introduction) protocol, [MCP](https://modelcontextprotocol.io)
 extensions, and pluggable LLM providers.
 
-> Status: **Phase 0 in progress — 0.1 echo loop implemented.** Run the streaming chat CLI with
-> `cd core && uv run saddlery` (needs `ANTHROPIC_API_KEY`). Design in the
+> Status: **Phase 0 in progress — 0.1 echo loop implemented.** Run the streaming chat CLI from
+> `core/`: `uv run saddlery` — needs `ANTHROPIC_API_KEY` (or keep it in `core/.env` and run
+> `export $(cat .env) && uv run saddlery`). Design in the
 > [Phase 0 spec](docs/specs/2026-06-16-phase0-core-design.md); tasks in
 > [Linear](https://linear.app/mark-mansour/project/agent-saddlery-594c6b585b2b/overview).
 
