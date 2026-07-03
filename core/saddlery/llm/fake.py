@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
-from typing import AsyncIterator
+from typing import TYPE_CHECKING
 
 from saddlery.llm.base import ProviderDelta, TextDelta
-from saddlery.messages import Message
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
+    from saddlery.messages import Message
 
 
 class FakeProvider:

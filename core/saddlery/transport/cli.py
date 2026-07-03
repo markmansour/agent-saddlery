@@ -5,14 +5,14 @@ from __future__ import annotations
 import sys
 from typing import TextIO
 
-from saddlery.events import AssistantMessageDelta, BaseEvent, ErrorEvent, RunFinished
+from saddlery.events import AssistantMessageDelta, ErrorEvent, Event, RunFinished
 
 
 class CliSink:
     def __init__(self, out: TextIO = sys.stdout) -> None:
         self._out = out
 
-    async def emit(self, event: BaseEvent) -> None:
+    async def emit(self, event: Event) -> None:
         if isinstance(event, AssistantMessageDelta):
             self._out.write(event.text)
             self._out.flush()

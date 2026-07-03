@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
-from typing import AsyncIterator, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 from pydantic import BaseModel
 
-from saddlery.messages import Message
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
+    from saddlery.messages import Message
 
 
 class TextDelta(BaseModel):
@@ -19,6 +22,4 @@ ProviderDelta = TextDelta
 
 @runtime_checkable
 class LLMProvider(Protocol):
-    def stream(
-        self, messages: list[Message], *, model: str
-    ) -> AsyncIterator[ProviderDelta]: ...
+    def stream(self, messages: list[Message], *, model: str) -> AsyncIterator[ProviderDelta]: ...
