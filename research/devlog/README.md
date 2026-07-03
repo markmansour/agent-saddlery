@@ -19,19 +19,17 @@ Write the entry at the finish/merge step, alongside the demo and test the projec
 expects per slice. A slice is not done until its devlog entry lands (or the issue records why
 it's N/A — e.g. pure chore, docs-only, or a mechanical refactor with nothing to learn from).
 
-**Phase retrospectives.** When a milestone (phase) closes, write one retrospective devlog
-entry that drafts the blog post for that phase. One retro per phase, at phase close. See
-[Phase retrospectives](#phase-retrospectives) below.
+**Phase retrospectives.** Write a retrospective devlog entry — a blog-post draft — **per phase
+at a minimum**, when a milestone closes. Also write one whenever a significant new body of work
+lands that warrants its own reflection, even mid-phase. See [Phase retrospectives](#phase-retrospectives) below.
 
-**Where this rule lives.** Tasks are tracked in [Linear](https://linear.app/mark-mansour/issue/MM-32),
-not GitHub Issues, so there is no repo issue template to carry the checkbox. This README is the
-canonical statement of the rule. Whoever creates or triages an issue (via the `to-issues` and
-`triage` skill flows) should paste the devlog-DoD checkbox into each vertical-slice issue's
-Definition of Done.
-
-> **Open question for Mark:** should the devlog-DoD checkbox be wired directly into a Linear
-> issue template and/or the `to-issues` / `triage` skills so it's added automatically, rather
-> than pasted by hand? Flagged in [MM-32](https://linear.app/mark-mansour/issue/MM-32).
+**Where this rule lives (auto-wired).** Tasks are tracked in [Linear](https://linear.app/mark-mansour/issue/MM-32),
+not GitHub Issues, so the rule is wired into issue creation itself rather than a repo template.
+The repo [`CLAUDE.md`](../../CLAUDE.md) instructs the `to-issues` / `triage` flows to add a
+**Definition of Done checklist** to every vertical-slice issue, carrying the
+`- [ ] Devlog entry written (or explicitly N/A)` item. Linear renders that checklist as tracked
+sub-progress on the issue — visible and managed automatically, no hand-pasting. This README
+stays the canonical statement of *why* the rule exists.
 
 ## Index
 - [2026-06-16 — Survey & first decisions](2026-06-16-survey.md)
@@ -46,7 +44,3 @@ Definition of Done.
 **Voice note:** the blog is Mark's, first person. The dated entries are the factual record;
 the retrospectives are drafts. Claude prompts Mark for his own reflections, surprises, and
 takeaways at each phase boundary so the posts read as a journey, not a changelog.
-
----
-Mark's response:
-* wire it in so that the task is managed automatically.
