@@ -37,6 +37,7 @@ stays the canonical statement of *why* the rule exists.
 - [2026-06-16 — Building 0.1 (echo loop)](2026-06-16-0.1-echo-loop.md)
 - [2026-06-24 — Python standards & enforcement](2026-06-24-python-standards.md)
 - [2026-07-02 — Diagrams + nominal conformance (MM-29, MM-30)](2026-07-02-diagrams-nominal-conformance.md)
+- [2026-07-03 — Executing the repo-layout rename (`core/` → `backend/`)](2026-07-03-repo-layout-rename.md)
 
 ## Phase retrospectives
 - _(none yet — first one at the close of Phase 0)_
