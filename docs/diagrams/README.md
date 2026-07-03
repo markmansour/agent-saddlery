@@ -1,0 +1,18 @@
+# Diagrams
+
+Mermaid diagrams for the `saddlery` core. They render inline on GitHub and Linear.
+
+| File | Source |
+|---|---|
+| [class-core.md](class-core.md) | Generated — pyreverse class diagram of `saddlery`. |
+| [events-er.md](events-er.md) | Generated — ER diagram of the event models + `Message`. |
+| [echo-loop-sequence.md](echo-loop-sequence.md) | Hand-authored — the 0.1 echo-loop sequence. |
+
+## Regenerate
+
+From the repo root:
+
+    make diagrams
+
+which runs `core/scripts/gen_diagrams.py`. Generated files carry a "do not edit"
+banner; edit the generator, not the output. Hand-authored diagrams are edited directly.
