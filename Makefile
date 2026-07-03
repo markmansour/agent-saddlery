@@ -1,4 +1,4 @@
 .PHONY: diagrams
 
 diagrams:
-	cd core && uv run python scripts/gen_diagrams.py
+	cd backend && uv run python scripts/gen_diagrams.py

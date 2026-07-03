@@ -1,11 +1,11 @@
-# Python conventions (`core/`)
+# Python conventions (`backend/`)
 
-The standard for the `saddlery` package. Config lives in `core/pyproject.toml`;
+The standard for the `saddlery` package. Config lives in `backend/pyproject.toml`;
 this page is the human-readable version. Floor: Python 3.12.
 
 ## Run the gates
 
-From `core/`:
+From `backend/`:
 
 ```bash
 uv run ruff format .        # format

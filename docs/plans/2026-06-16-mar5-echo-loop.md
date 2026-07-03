@@ -18,6 +18,9 @@
 
 All Python lives under `core/` (the monorepo's Python project; TS frontends arrive at 0.3 under `frontends/`).
 
+> **Note (2026-07-03):** `core/` is now `backend/` and `frontends/` is `frontend/` per
+> [ADR-0001](../adr/0001-repository-layout.md). Paths below reflect the original plan.
+
 | File | Responsibility |
 |---|---|
 | `core/pyproject.toml` | Project metadata, deps, console script, pytest/ruff config |

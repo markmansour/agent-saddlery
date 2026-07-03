@@ -31,3 +31,7 @@ Devlog entries (`research/devlog/**`) are Mark's first-person blog drafts. **Com
 changes without a `Co-Authored-By` trailer** — the blog carries no AI attribution. This is a
 deliberate exception to the global default (which adds the trailer); it applies to the devlog
 only. Every other commit keeps the standard `Co-Authored-By: Claude …` trailer.
+
+**Pull request bodies carry no AI attribution.** Do not append the "🤖 Generated with Claude
+Code" line (or any similar tool/authorship credit) to PR descriptions in this repo — a deliberate
+override of the global default.

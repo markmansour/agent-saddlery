@@ -15,5 +15,5 @@ From the repo root:
 
     make diagrams
 
-which runs `core/scripts/gen_diagrams.py`. Generated files carry a "do not edit"
+which runs `backend/scripts/gen_diagrams.py`. Generated files carry a "do not edit"
 banner; edit the generator, not the output. Hand-authored diagrams are edited directly.

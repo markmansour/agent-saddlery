@@ -14,7 +14,7 @@ Format: a trimmed [Michael Nygard template](https://cognitect.com/blog/2011/11/1
 
 | ADR | Title | Status |
 |---|---|---|
-| [0001](0001-repository-layout.md) | Repository layout and the `core/` naming | Proposed |
+| [0001](0001-repository-layout.md) | Repository layout and the `core/` naming | Accepted |
 
 Related planning docs live in [`docs/specs/`](../specs/) (designs) and [`docs/plans/`](../plans/)
 (step-by-step implementation); decisions that cut across specs land here. Tasks live in
