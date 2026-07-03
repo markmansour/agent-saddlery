@@ -1,7 +1,7 @@
 # ADR-0001 — Repository layout and the `core/` naming
 
-- **Status:** Proposed — awaiting Mark's sign-off
-- **Date:** 2026-07-02
+- **Status:** Accepted (Mark Mansour, 2026-07-03) — Option B ratified; the rename executes in a follow-up ([MM-36](https://linear.app/mark-mansour/issue/MM-36))
+- **Date:** 2026-07-02 (proposed) · 2026-07-03 (accepted)
 - **Deciders:** Mark Mansour
 - **Linear:** [MM-33](https://linear.app/mark-mansour/issue/MM-33) (surfaced during [MM-29](https://linear.app/mark-mansour/issue/MM-29))
 - **Supersedes / relates to:** the informal layout in the
