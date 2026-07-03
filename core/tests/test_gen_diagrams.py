@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from saddlery.events import BaseEvent, ErrorEvent, UserMessage
 from saddlery.messages import Message
-from scripts.gen_diagrams import render_er
+from scripts.gen_diagrams import render_class_md, render_er
 
 
 def test_render_er_emits_entities_fields_and_inheritance() -> None:
@@ -27,3 +27,11 @@ def test_render_er_emits_entities_fields_and_inheritance() -> None:
 def test_render_er_is_deterministic() -> None:
     models = [BaseEvent, UserMessage, Message]
     assert render_er(models) == render_er(models)
+
+
+def test_render_class_md_wraps_in_a_fenced_mermaid_block() -> None:
+    out = render_class_md("classDiagram\n  class Agent")
+    assert "```mermaid" in out
+    assert "classDiagram" in out
+    assert "do not edit" in out.lower()
+    assert out.rstrip().endswith("```")
