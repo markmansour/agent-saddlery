@@ -6,6 +6,9 @@ markdown files, and is covered by the CI smoke run.
 
 from __future__ import annotations
 
+import importlib
+import inspect
+import pkgutil
 import re
 import subprocess
 import tempfile
@@ -159,9 +162,23 @@ def reorder_class_diagram(mmd: str, class_module: dict[str, str]) -> str:
     return "\n".join(out) + "\n"
 
 
+def _saddlery_class_modules() -> dict[str, str]:
+    """Map each saddlery class name to the module that defines it."""
+    import saddlery
+
+    mapping: dict[str, str] = {}
+    for info in pkgutil.walk_packages(saddlery.__path__, prefix="saddlery."):
+        module = importlib.import_module(info.name)
+        for name, obj in inspect.getmembers(module, inspect.isclass):
+            if obj.__module__ == info.name:
+                mapping[name] = obj.__module__
+    return mapping
+
+
 def main() -> None:
     DIAGRAMS_DIR.mkdir(parents=True, exist_ok=True)
-    (DIAGRAMS_DIR / "class-core.md").write_text(render_class_md(_pyreverse_class_mmd()))
+    ordered = reorder_class_diagram(_pyreverse_class_mmd(), _saddlery_class_modules())
+    (DIAGRAMS_DIR / "class-core.md").write_text(render_class_md(ordered))
     (DIAGRAMS_DIR / "events-er.md").write_text(
         _wrap_md("Core data model (events + messages)", render_er(ER_MODELS))
     )

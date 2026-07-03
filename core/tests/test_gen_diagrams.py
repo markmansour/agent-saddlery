@@ -2,7 +2,13 @@ from __future__ import annotations
 
 from saddlery.events import BaseEvent, ErrorEvent, UserMessage
 from saddlery.messages import Message
-from scripts.gen_diagrams import _group_key, render_class_md, render_er, reorder_class_diagram
+from scripts.gen_diagrams import (
+    _group_key,
+    _saddlery_class_modules,
+    render_class_md,
+    render_er,
+    reorder_class_diagram,
+)
 
 
 def test_render_er_emits_entities_fields_and_inheritance() -> None:
@@ -83,3 +89,10 @@ def test_reorder_unknown_module_goes_last() -> None:
     )
     out = reorder_class_diagram(mmd, {"Agent": "saddlery.agent"})
     assert out.index("class Agent") < out.index("class Mystery")
+
+
+def test_saddlery_class_modules_maps_known_classes() -> None:
+    mapping = _saddlery_class_modules()
+    assert mapping["Agent"] == "saddlery.agent"
+    assert mapping["LLMProvider"] == "saddlery.llm.base"
+    assert mapping["BaseEvent"] == "saddlery.events"
