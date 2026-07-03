@@ -46,3 +46,7 @@ Definition of Done.
 **Voice note:** the blog is Mark's, first person. The dated entries are the factual record;
 the retrospectives are drafts. Claude prompts Mark for his own reflections, surprises, and
 takeaways at each phase boundary so the posts read as a journey, not a changelog.
+
+---
+Mark's response:
+* wire it in so that the task is managed automatically.
