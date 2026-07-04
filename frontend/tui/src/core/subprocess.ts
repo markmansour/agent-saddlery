@@ -71,6 +71,14 @@ export class CoreSubprocess extends EventEmitter {
       }
     });
 
+    readline.on("close", () => {
+      appendFileSync("tui.log", `[readline] closed\n`);
+    });
+
+    this.process.stdout.on("data", (data: Buffer) => {
+      appendFileSync("tui.log", `[stdout] ${data.length} bytes: ${data.toString().substring(0, 50)}\n`);
+    });
+
     // Capture stderr logs from subprocess
     if (this.process.stderr) {
       const stderrReadline = createInterface({
@@ -96,6 +104,8 @@ export class CoreSubprocess extends EventEmitter {
       }
       this.emit("closed", code);
     });
+
+    appendFileSync("tui.log", `[subprocess] process PID: ${this.process.pid}\n`);
 
     // Extract session ID from first event
     await new Promise<void>((resolve, reject) => {

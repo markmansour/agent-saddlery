@@ -29,8 +29,11 @@ class CliSink(EventSink):
 
     async def emit(self, event: Event) -> None:
         if isinstance(event, SessionStarted):
-            # SessionStarted doesn't output to terminal, but ensures event reaches TUI
-            pass
+            # Output SessionStarted as JSON so TUI receives it
+            import json
+
+            self._out.write(json.dumps(event.model_dump()) + "\n")
+            self._out.flush()
         elif isinstance(event, AssistantMessageDelta):
             self._out.write(event.text)
             self._out.flush()
