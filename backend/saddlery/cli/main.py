@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import sys
 import uuid
 
@@ -12,13 +13,17 @@ from saddlery.agent import Agent
 from saddlery.cli.input import read_user_messages_interactive, read_user_messages_json
 from saddlery.events import UserMessage
 from saddlery.llm.anthropic_provider import AnthropicProvider
+from saddlery.llm.mock_provider import MockLMProvider
 from saddlery.logging import configure_logging
 from saddlery.session import Session
 from saddlery.transport.cli import CliSink, LoggingSink
 
 
 def build_agent() -> Agent:
-    return Agent(provider=AnthropicProvider())
+    # Use mock provider if no API key or if --test-mode is set
+    use_mock = "--test-mode" in sys.argv or not os.environ.get("ANTHROPIC_API_KEY")
+    provider = MockLMProvider() if use_mock else AnthropicProvider()
+    return Agent(provider=provider)
 
 
 def _use_json_input() -> bool:
