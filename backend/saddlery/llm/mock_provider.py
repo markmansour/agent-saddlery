@@ -49,5 +49,9 @@ class MockLMProvider(LLMProvider):
             response = self.response
 
         # Stream the response one character at a time
-        for char in response:
-            yield TextDelta(text=char)
+        async def stream() -> AsyncIterator[ProviderDelta]:
+            for char in response:
+                yield TextDelta(text=char)
+
+        async for delta in stream():
+            yield delta

@@ -13,11 +13,7 @@ interface MessageHistoryProps {
 
 const MessageHistory = ({ messages }: MessageHistoryProps) => {
   if (messages.length === 0) {
-    return (
-      <Text dimColor>
-        [No messages yet. Start typing to begin.]
-      </Text>
-    );
+    return <Text dimColor>[No messages yet. Start typing to begin.]</Text>;
   }
 
   return (

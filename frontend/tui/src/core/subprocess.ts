@@ -16,25 +16,28 @@ export class CoreSubprocess extends EventEmitter {
   private sessionId: string = "";
 
   async start(): Promise<void> {
+    // Find backend directory: either as sibling (if in frontend/tui) or current dir (if already there)
+    let backendPath = process.cwd();
+    if (backendPath.includes("/frontend/tui")) {
+      backendPath = backendPath.replace(/\/frontend\/tui.*/, "/backend");
+    }
+
     // Spawn Python core with --json-input flag and JSON logging
-    const pythonPath = "uv";
-    const args = [
-      "run",
-      "python",
-      "-m",
-      "saddlery.cli.main",
-      "--json-input",
-    ];
+    // Use sh to cd into backend first (ensures uv finds pyproject.toml)
     const env = {
       ...process.env,
       SADDLERY_LOG_FORMAT: "json",
+      PYTHONUNBUFFERED: "1",
     };
 
-    this.process = spawn(pythonPath, args, {
-      cwd: "../../backend", // Path to backend directory
-      env,
-      stdio: ["pipe", "pipe", "pipe"],
-    });
+    this.process = spawn(
+      "sh",
+      ["-c", `cd '${backendPath}' && uv run python -m saddlery.cli.main --json-input`],
+      {
+        env,
+        stdio: ["pipe", "pipe", "pipe"],
+      }
+    );
 
     if (!this.process.stdout || !this.process.stdin || !this.process.stderr) {
       throw new Error("Failed to spawn core process");
@@ -114,7 +117,13 @@ export class CoreSubprocess extends EventEmitter {
     // Emit raw event
     this.emit("event", event);
 
-    // Parse specific event types
+    // Handle session_started (structured log event)
+    if (event.event === "session_started") {
+      // Don't extract here; let caller listen for "event"
+      return;
+    }
+
+    // Parse AG-UI event_emitted events
     if (event.event === "event_emitted" && event.event_type) {
       const eventType = event.event_type as string;
 

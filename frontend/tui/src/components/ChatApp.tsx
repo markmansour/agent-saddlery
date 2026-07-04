@@ -43,10 +43,7 @@ const ChatApp = () => {
           setMessages((prev) => {
             const lastMsg = prev[prev.length - 1];
             if (lastMsg && lastMsg.role === "assistant") {
-              return [
-                ...prev.slice(0, -1),
-                { ...lastMsg, content: lastMsg.content + text },
-              ];
+              return [...prev.slice(0, -1), { ...lastMsg, content: lastMsg.content + text }];
             }
             return prev;
           });
@@ -58,10 +55,7 @@ const ChatApp = () => {
             setMessages((prev) => {
               const lastMsg = prev[prev.length - 1];
               if (lastMsg && lastMsg.role === "assistant") {
-                return [
-                  ...prev.slice(0, -1),
-                  { ...lastMsg, content: assistantBuffer },
-                ];
+                return [...prev.slice(0, -1), { ...lastMsg, content: assistantBuffer }];
               }
               return [
                 ...prev,
