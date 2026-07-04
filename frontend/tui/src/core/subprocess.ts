@@ -120,9 +120,12 @@ export class CoreSubprocess extends EventEmitter {
 
       const onEvent = (event: CoreEvent) => {
         appendFileSync("tui.log", `[onEvent] received ${event.event_type || event.event}\n`);
-        if ((event.event_type === "session_started" || event.event === "session_started") && event.session_id) {
+        const sessionId =
+          (event.session_id as string | undefined) ||
+          (event.event_data?.session_id as string | undefined);
+        if ((event.event_type === "session_started" || event.event === "session_started") && sessionId) {
           appendFileSync("tui.log", `[onEvent] GOT session_started, resolving\n`);
-          this.sessionId = event.session_id as string;
+          this.sessionId = sessionId;
           cleanup();
           resolve();
         }
