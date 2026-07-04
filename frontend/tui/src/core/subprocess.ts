@@ -1,6 +1,7 @@
 import { spawn, ChildProcess } from "child_process";
 import { EventEmitter } from "events";
 import { createInterface } from "readline";
+import { appendFileSync } from "fs";
 
 export interface CoreEvent {
   event?: string;
@@ -51,8 +52,7 @@ export class CoreSubprocess extends EventEmitter {
 
     readline.on("line", (eventLine: string) => {
       // Log received events
-      const fs = require("fs");
-      fs.appendFileSync("tui.log", `[recv] ${eventLine}\n`);
+      appendFileSync("tui.log", `[recv] ${eventLine}\n`);
 
       try {
         const event = JSON.parse(eventLine) as CoreEvent;
@@ -156,8 +156,7 @@ export class CoreSubprocess extends EventEmitter {
     const msgStr = JSON.stringify(msg);
 
     // Log sent messages
-    const fs = require("fs");
-    fs.appendFileSync("tui.log", `[send] ${msgStr}\n`);
+    appendFileSync("tui.log", `[send] ${msgStr}\n`);
 
     this.process.stdin.write(msgStr + "\n");
   }
