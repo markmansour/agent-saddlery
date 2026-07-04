@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 
 import anthropic
 
-from saddlery.llm.base import LLMProvider, ProviderDelta, TextDelta
+from saddlery.llm.base import LLMProvider, ProviderDelta, TextDelta, ToolCallDelta
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -63,6 +63,22 @@ class AnthropicProvider(LLMProvider):
         kwargs: dict = {"model": model, "max_tokens": self._max_tokens, "messages": convo}
         if system is not None:
             kwargs["system"] = system
+        if tools:
+            kwargs["tools"] = tools
+
         async with self._client.messages.stream(**kwargs) as stream:
-            async for text in stream.text_stream:
-                yield TextDelta(text=text)
+            async for chunk in stream:
+                # Handle text deltas (existing behavior)
+                if chunk.type == "content_block_delta" and chunk.delta.type == "text_delta":
+                    yield TextDelta(text=chunk.delta.text)
+                # Handle tool_use blocks (new behavior)
+                elif (
+                    chunk.type == "content_block_stop"
+                    and hasattr(chunk, "content_block")
+                    and chunk.content_block.type == "tool_use"
+                ):
+                    yield ToolCallDelta(
+                        id=chunk.content_block.id,
+                        name=chunk.content_block.name,
+                        input=chunk.content_block.input,
+                    )
