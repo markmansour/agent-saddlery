@@ -85,18 +85,24 @@ export class CoreSubprocess extends EventEmitter {
 
     // Extract session ID from first event
     await new Promise<void>((resolve, reject) => {
+      let timeoutId: NodeJS.Timeout | null = null;
+
+      const cleanup = () => {
+        if (timeoutId) clearTimeout(timeoutId);
+        this.removeListener("event", onEvent);
+        this.removeListener("error", onError);
+      };
+
       const onEvent = (event: CoreEvent) => {
         if (event.event === "session_started" && event.session_id) {
           this.sessionId = event.session_id as string;
-          this.removeListener("event", onEvent);
-          this.removeListener("error", onError);
+          cleanup();
           resolve();
         }
       };
 
       const onError = (err: Error) => {
-        this.removeListener("event", onEvent);
-        this.removeListener("error", onError);
+        cleanup();
         reject(err);
       };
 
@@ -104,15 +110,10 @@ export class CoreSubprocess extends EventEmitter {
       this.on("error", onError);
 
       // Timeout if session doesn't start
-      const timeoutId = setTimeout(() => {
-        this.removeListener("event", onEvent);
-        this.removeListener("error", onError);
+      timeoutId = setTimeout(() => {
+        cleanup();
         reject(new Error("Core process did not start within 5 seconds"));
       }, 5000);
-
-      // Cancel timeout if we resolve/reject
-      this.once("event", () => clearTimeout(timeoutId));
-      this.once("error", () => clearTimeout(timeoutId));
     });
   }
 
