@@ -63,11 +63,13 @@ export class CoreSubprocess extends EventEmitter {
 
     readline.on("line", (eventLine: string) => {
       try {
+        const ts = new Date().toISOString();
         const event = JSON.parse(eventLine) as CoreEvent;
+        appendFileSync("tui.log", `${ts} [wire←] ${eventLine}\n`);
         this.handleEvent(event);
       } catch (e) {
-        // Log non-JSON lines for debugging
-        appendFileSync("tui.log", `[unparseable] ${eventLine.substring(0, 60)}\n`);
+        const ts = new Date().toISOString();
+        appendFileSync("tui.log", `${ts} [unparseable] ${eventLine.substring(0, 60)}\n`);
       }
     });
 
@@ -159,7 +161,8 @@ export class CoreSubprocess extends EventEmitter {
       // Already handled in start()
       return;
     } else if (eventType === "run_started") {
-      appendFileSync("tui.log", `[→] run started\n`);
+      const ts = new Date().toISOString();
+      appendFileSync("tui.log", `${ts} [→ run] started\n`);
       this.emit("run_start");
     } else if (eventType === "assistant_message_delta") {
       const eventData = event.event_data as Record<string, unknown>;
@@ -168,16 +171,19 @@ export class CoreSubprocess extends EventEmitter {
         this.emit("assistant_delta", text);
       }
     } else if (eventType === "assistant_message") {
+      const ts = new Date().toISOString();
       const eventData = event.event_data as Record<string, unknown>;
       const content = eventData?.content as string | undefined;
-      appendFileSync("tui.log", `[✓] assistant: ${content?.substring(0, 50)}${content && content.length > 50 ? "..." : ""}\n`);
+      appendFileSync("tui.log", `${ts} [✓ assistant] ${content}\n`);
     } else if (eventType === "run_finished") {
-      appendFileSync("tui.log", `[✓] run finished\n`);
+      const ts = new Date().toISOString();
+      appendFileSync("tui.log", `${ts} [✓ finished]\n`);
       this.emit("run_finish");
     } else if (eventType === "error") {
+      const ts = new Date().toISOString();
       const eventData = event.event_data as Record<string, unknown>;
       const message = eventData?.message as string | undefined;
-      appendFileSync("tui.log", `[✗] error: ${message}\n`);
+      appendFileSync("tui.log", `${ts} [✗ error] ${message}\n`);
       if (message) {
         this.emit("error", new Error(message));
       }
@@ -195,7 +201,9 @@ export class CoreSubprocess extends EventEmitter {
     };
 
     const msgStr = JSON.stringify(msg);
-    appendFileSync("tui.log", `[→] user: ${content.substring(0, 50)}${content.length > 50 ? "..." : ""}\n`);
+    const ts = new Date().toISOString();
+    appendFileSync("tui.log", `${ts} [→ user] ${content}\n`);
+    appendFileSync("tui.log", `${ts} [wire→] ${msgStr}\n`);
     this.process.stdin.write(msgStr + "\n");
   }
 
