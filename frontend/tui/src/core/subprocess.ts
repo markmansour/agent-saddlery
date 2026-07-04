@@ -62,12 +62,13 @@ export class CoreSubprocess extends EventEmitter {
     });
 
     readline.on("line", (eventLine: string) => {
-      appendFileSync("tui.log", `[event] ${eventLine.substring(0, 80)}\n`);
       try {
         const event = JSON.parse(eventLine) as CoreEvent;
+        appendFileSync("tui.log", `[parsed] ${event.event_type || event.event}\n`);
         this.handleEvent(event);
-      } catch {
-        // Ignore parse errors (e.g., stderr output)
+      } catch (e) {
+        // Log non-JSON lines for debugging
+        appendFileSync("tui.log", `[unparseable] ${eventLine.substring(0, 60)}\n`);
       }
     });
 
@@ -75,9 +76,7 @@ export class CoreSubprocess extends EventEmitter {
       appendFileSync("tui.log", `[readline] closed\n`);
     });
 
-    this.process.stdout.on("data", (data: Buffer) => {
-      appendFileSync("tui.log", `[stdout] ${data.length} bytes: ${data.toString().substring(0, 50)}\n`);
-    });
+    // Note: stdout.on("data") fires before readline processes lines, so we'll see raw bytes first
 
     // Capture stderr logs from subprocess
     if (this.process.stderr) {

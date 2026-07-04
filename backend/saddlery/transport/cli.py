@@ -13,7 +13,6 @@ from saddlery.events import (
     Event,
     RunFinished,
     RunStarted,
-    SessionStarted,
 )
 from saddlery.transport.base import EventSink
 
@@ -22,31 +21,21 @@ if TYPE_CHECKING:
 
 
 class CliSink(EventSink):
-    """Streams assistant text to a terminal."""
+    """Outputs events as JSON to stdout for TUI/frontend consumption."""
 
     def __init__(self, out: TextIO = sys.stdout) -> None:
         self._out = out
 
     async def emit(self, event: Event) -> None:
-        if isinstance(event, SessionStarted):
-            # Output SessionStarted as JSON in AG-UI format
-            import json
+        import json
 
-            output = {
-                "event_type": "session_started",
-                "event_data": event.model_dump(mode="json"),
-            }
-            self._out.write(json.dumps(output) + "\n")
-            self._out.flush()
-        elif isinstance(event, AssistantMessageDelta):
-            self._out.write(event.text)
-            self._out.flush()
-        elif isinstance(event, ErrorEvent):
-            self._out.write(f"\n[error] {event.message}\n")
-            self._out.flush()
-        elif isinstance(event, RunFinished):
-            self._out.write("\n")
-            self._out.flush()
+        # Output all events as JSON in AG-UI format
+        output = {
+            "event_type": event.type,
+            "event_data": event.model_dump(mode="json"),
+        }
+        self._out.write(json.dumps(output) + "\n")
+        self._out.flush()
 
 
 class LoggingSink(EventSink):
