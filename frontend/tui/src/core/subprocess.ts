@@ -150,32 +150,32 @@ export class CoreSubprocess extends EventEmitter {
     // Emit raw event
     this.emit("event", event);
 
-    // Handle session_started (structured log event)
-    if (event.event === "session_started") {
-      // Don't extract here; let caller listen for "event"
+    // All AG-UI events have event_type at the top level
+    const eventType = event.event_type as string | undefined;
+    if (!eventType) {
+      // Not an AG-UI event (e.g., a log message), ignore
       return;
     }
 
-    // Parse AG-UI event_emitted events
-    if (event.event === "event_emitted" && event.event_type) {
-      const eventType = event.event_type as string;
-
-      if (eventType === "run_started") {
-        this.emit("run_start");
-      } else if (eventType === "assistant_message_delta") {
-        const eventData = event.event_data as Record<string, unknown>;
-        const text = eventData?.text as string | undefined;
-        if (text) {
-          this.emit("assistant_delta", text);
-        }
-      } else if (eventType === "run_finished") {
-        this.emit("run_finish");
-      } else if (eventType === "error") {
-        const eventData = event.event_data as Record<string, unknown>;
-        const message = eventData?.message as string | undefined;
-        if (message) {
-          this.emit("error", new Error(message));
-        }
+    if (eventType === "session_started") {
+      // Already handled in start()
+      return;
+    } else if (eventType === "run_started") {
+      this.emit("run_start");
+    } else if (eventType === "assistant_message_delta") {
+      const eventData = event.event_data as Record<string, unknown>;
+      const text = eventData?.text as string | undefined;
+      if (text) {
+        appendFileSync("tui.log", `[delta] ${text.substring(0, 30)}\n`);
+        this.emit("assistant_delta", text);
+      }
+    } else if (eventType === "run_finished") {
+      this.emit("run_finish");
+    } else if (eventType === "error") {
+      const eventData = event.event_data as Record<string, unknown>;
+      const message = eventData?.message as string | undefined;
+      if (message) {
+        this.emit("error", new Error(message));
       }
     }
   }
