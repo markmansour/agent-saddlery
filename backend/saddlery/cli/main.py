@@ -38,10 +38,14 @@ async def _amain() -> int:
     principal = "local"
     session = Session(session_id=uuid.uuid4().hex, principal=principal)
 
-    log.info("session_started", session_id=session.session_id, principal=principal)
-
     agent = build_agent()
     sink = LoggingSink(CliSink())
+
+    # Emit session started event
+    from saddlery.events import SessionStarted
+
+    await sink.emit(SessionStarted(session_id=session.session_id, principal=principal))
+    log.info("session_started", session_id=session.session_id, principal=principal)
 
     # Determine input mode: JSON (for TUI) or interactive (for CLI)
     use_json = _use_json_input()

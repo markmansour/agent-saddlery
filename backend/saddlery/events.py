@@ -28,6 +28,10 @@ class BaseEvent(BaseModel):
     timestamp: datetime = Field(default_factory=_now)
 
 
+class SessionStarted(BaseEvent):
+    type: Literal["session_started"] = "session_started"
+
+
 class UserMessage(BaseEvent):
     type: Literal["user_message"] = "user_message"
     content: str
@@ -57,6 +61,12 @@ class ErrorEvent(BaseEvent):
 
 
 Event = Annotated[
-    UserMessage | RunStarted | AssistantMessageDelta | AssistantMessage | RunFinished | ErrorEvent,
+    SessionStarted
+    | UserMessage
+    | RunStarted
+    | AssistantMessageDelta
+    | AssistantMessage
+    | RunFinished
+    | ErrorEvent,
     Field(discriminator="type"),
 ]

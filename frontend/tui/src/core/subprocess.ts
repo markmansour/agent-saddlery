@@ -31,6 +31,12 @@ export class CoreSubprocess extends EventEmitter {
       PYTHONUNBUFFERED: "1",
     };
 
+    appendFileSync("tui.log", `[subprocess] spawning core at ${backendPath}\n`);
+    appendFileSync(
+      "tui.log",
+      `[subprocess] command: cd '${backendPath}' && uv run python -m saddlery.cli.main --json-input\n`
+    );
+
     this.process = spawn(
       "sh",
       ["-c", `cd '${backendPath}' && uv run python -m saddlery.cli.main --json-input`],
@@ -40,9 +46,14 @@ export class CoreSubprocess extends EventEmitter {
       }
     );
 
+    appendFileSync("tui.log", `[subprocess] spawn returned, checking streams\n`);
+
     if (!this.process.stdout || !this.process.stdin) {
+      appendFileSync("tui.log", `[subprocess] ERROR: no stdout or stdin\n`);
       throw new Error("Failed to spawn core process");
     }
+
+    appendFileSync("tui.log", `[subprocess] streams OK, setting up readline\n`);
 
     // Read events from core stdout
     const readline = createInterface({
@@ -51,6 +62,7 @@ export class CoreSubprocess extends EventEmitter {
     });
 
     readline.on("line", (eventLine: string) => {
+      appendFileSync("tui.log", `[event] ${eventLine.substring(0, 80)}\n`);
       try {
         const event = JSON.parse(eventLine) as CoreEvent;
         this.handleEvent(event);
@@ -73,10 +85,12 @@ export class CoreSubprocess extends EventEmitter {
 
     // Handle process errors
     this.process.on("error", (err) => {
+      appendFileSync("tui.log", `[error] spawn error: ${err.message}\n`);
       this.emit("error", new Error(`Core process error: ${err.message}`));
     });
 
     this.process.on("exit", (code) => {
+      appendFileSync("tui.log", `[exit] process exited with code ${code}\n`);
       if (code !== 0 && code !== null) {
         this.emit("error", new Error(`Core process exited with code ${code}`));
       }
@@ -94,7 +108,9 @@ export class CoreSubprocess extends EventEmitter {
       };
 
       const onEvent = (event: CoreEvent) => {
-        if (event.event === "session_started" && event.session_id) {
+        appendFileSync("tui.log", `[onEvent] received ${event.event_type || event.event}\n`);
+        if ((event.event_type === "session_started" || event.event === "session_started") && event.session_id) {
+          appendFileSync("tui.log", `[onEvent] GOT session_started, resolving\n`);
           this.sessionId = event.session_id as string;
           cleanup();
           resolve();
@@ -161,7 +177,9 @@ export class CoreSubprocess extends EventEmitter {
       content,
     };
 
-    this.process.stdin.write(JSON.stringify(msg) + "\n");
+    const msgStr = JSON.stringify(msg);
+    appendFileSync("tui.log", `[send] ${msgStr}\n`);
+    this.process.stdin.write(msgStr + "\n");
   }
 
   getSessionId(): string {
