@@ -19,8 +19,8 @@ class MockLMProvider(LLMProvider):
         self.response = response
         self.call_count = 0
 
-    async def stream_completion(self, messages: list[Message]) -> AsyncIterator[ProviderDelta]:
-        """Stream a mock response."""
+    async def stream(self, messages: list[Message], *, model: str) -> AsyncIterator[ProviderDelta]:
+        """Stream a mock response (Protocol method name is 'stream', not 'stream_completion')."""
         self.call_count += 1
 
         # Extract the user's message for a more contextual response
@@ -49,9 +49,5 @@ class MockLMProvider(LLMProvider):
             response = self.response
 
         # Stream the response one character at a time
-        async def stream() -> AsyncIterator[ProviderDelta]:
-            for char in response:
-                yield TextDelta(text=char)
-
-        async for delta in stream():
-            yield delta
+        for char in response:
+            yield TextDelta(text=char)
