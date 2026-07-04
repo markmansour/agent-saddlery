@@ -24,7 +24,7 @@
   "license": "MIT",
   "dependencies": {
     "ink": "^4.4.1",
-    "keypress": "^0.2.1",
+    "ink-text-input": "^5.0.1",
     "react": "^18.2.0"
   },
   "devDependencies": {

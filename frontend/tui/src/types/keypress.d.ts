@@ -1,4 +1,2 @@
-declare module "keypress" {
-  function keypress(stream: NodeJS.ReadableStream): void;
-  export = keypress;
-}
+// ink-text-input provides its own input handling via Ink
+// No longer using keypress library for manual stdin management
