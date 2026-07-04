@@ -35,7 +35,7 @@ export class CoreSubprocess extends EventEmitter {
       ["-c", `cd '${backendPath}' && uv run python -m saddlery.cli.main --json-input`],
       {
         env,
-        stdio: ["pipe", "pipe", "pipe"],
+        stdio: ["pipe", "pipe", "inherit"],  // ← "inherit" means stderr goes to parent process
       }
     );
 
