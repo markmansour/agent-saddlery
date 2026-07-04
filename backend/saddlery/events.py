@@ -55,6 +55,21 @@ class RunFinished(BaseEvent):
     type: Literal["run_finished"] = "run_finished"
 
 
+class ToolCall(BaseEvent):
+    type: Literal["tool_call"] = "tool_call"
+    tool_call_id: str
+    tool_name: str
+    arguments: dict
+
+
+class ToolResult(BaseEvent):
+    type: Literal["tool_result"] = "tool_result"
+    tool_call_id: str
+    content: str
+    is_error: bool = False
+    source: Literal["untrusted"] = "untrusted"
+
+
 class ErrorEvent(BaseEvent):
     type: Literal["error"] = "error"
     message: str
@@ -66,6 +81,8 @@ Event = Annotated[
     | RunStarted
     | AssistantMessageDelta
     | AssistantMessage
+    | ToolCall
+    | ToolResult
     | RunFinished
     | ErrorEvent,
     Field(discriminator="type"),
