@@ -32,14 +32,14 @@ export class CoreSubprocess extends EventEmitter {
 
     this.process = spawn(
       "sh",
-      ["-c", `cd '${backendPath}' && uv run python -m saddlery.cli.main --json-input`],
+      ["-c", `cd '${backendPath}' && uv run python -m saddlery.cli.main --json-input 2>>core.log`],
       {
         env,
-        stdio: ["pipe", "pipe", "inherit"],  // ← "inherit" means stderr goes to parent process
+        stdio: ["pipe", "pipe", "pipe"],
       }
     );
 
-    if (!this.process.stdout || !this.process.stdin || !this.process.stderr) {
+    if (!this.process.stdout || !this.process.stdin) {
       throw new Error("Failed to spawn core process");
     }
 
@@ -58,15 +58,7 @@ export class CoreSubprocess extends EventEmitter {
       }
     });
 
-    // Read stderr for debugging (not emitted, just logged)
-    const stderrReadline = createInterface({
-      input: this.process.stderr,
-      crlfDelay: Infinity,
-    });
-
-    stderrReadline.on("line", () => {
-      // Ignore stderr for now; could log to file or emit separate event
-    });
+    // Note: subprocess stderr is redirected to core.log in the shell command above
 
     // Handle process errors
     this.process.on("error", (err) => {
