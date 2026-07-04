@@ -53,7 +53,6 @@ async def _amain() -> int:
 
     try:
         async for text in input_reader:
-            log.info("user_message_received", content=text)
             session.append(
                 UserMessage(session_id=session.session_id, principal=principal, content=text)
             )

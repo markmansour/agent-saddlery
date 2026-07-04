@@ -1,7 +1,6 @@
 import { spawn, ChildProcess } from "child_process";
 import { EventEmitter } from "events";
 import { createInterface } from "readline";
-import { appendFileSync } from "fs";
 
 export interface CoreEvent {
   event?: string;
@@ -33,10 +32,7 @@ export class CoreSubprocess extends EventEmitter {
 
     this.process = spawn(
       "sh",
-      [
-        "-c",
-        `cd '${backendPath}' && uv run python -m saddlery.cli.main --json-input 2>&1 | tee core.log`,
-      ],
+      ["-c", `cd '${backendPath}' && uv run python -m saddlery.cli.main --json-input`],
       {
         env,
         stdio: ["pipe", "pipe", "pipe"],
@@ -56,12 +52,6 @@ export class CoreSubprocess extends EventEmitter {
     readline.on("line", (eventLine: string) => {
       try {
         const event = JSON.parse(eventLine) as CoreEvent;
-        // Log parsed event type, not raw JSON
-        if (event.event) {
-          appendFileSync("tui.log", `[recv] ${event.event}\n`);
-        } else if (event.event_type) {
-          appendFileSync("tui.log", `[recv] ${event.event_type}\n`);
-        }
         this.handleEvent(event);
       } catch {
         // Ignore parse errors (e.g., stderr output)
@@ -159,12 +149,7 @@ export class CoreSubprocess extends EventEmitter {
       content,
     };
 
-    const msgStr = JSON.stringify(msg);
-
-    // Log sent messages
-    appendFileSync("tui.log", `[send] ${msgStr}\n`);
-
-    this.process.stdin.write(msgStr + "\n");
+    this.process.stdin.write(JSON.stringify(msg) + "\n");
   }
 
   getSessionId(): string {
