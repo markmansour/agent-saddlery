@@ -19,7 +19,13 @@ class MockLMProvider(LLMProvider):
         self.response = response
         self.call_count = 0
 
-    async def stream(self, messages: list[Message], *, model: str) -> AsyncIterator[ProviderDelta]:
+    async def stream(
+        self,
+        messages: list[Message],
+        *,
+        model: str,
+        tools: list[dict] | None = None,
+    ) -> AsyncIterator[ProviderDelta]:
         """Stream a mock response (Protocol method name is 'stream', not 'stream_completion')."""
         self.call_count += 1
 

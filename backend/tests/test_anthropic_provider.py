@@ -3,6 +3,7 @@ import os
 import pytest
 
 from saddlery.llm.anthropic_provider import AnthropicProvider, split_system
+from saddlery.llm.base import TextDelta
 from saddlery.messages import Message
 
 
@@ -35,5 +36,6 @@ async def test_anthropic_provider_streams_live():
             [Message(role="user", content="Reply with exactly the word: pong")],
             model="claude-haiku-4-5",
         )
+        if isinstance(d, TextDelta)
     ]
     assert "".join(chunks).strip() != ""

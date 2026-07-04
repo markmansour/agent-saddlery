@@ -18,7 +18,11 @@ class FakeProvider(LLMProvider):
         self._error = error
 
     async def stream(
-        self, messages: list[Message], *, model: str = "fake"
+        self,
+        messages: list[Message],
+        *,
+        model: str = "fake",
+        tools: list[dict] | None = None,
     ) -> AsyncIterator[ProviderDelta]:
         for chunk in self._chunks:
             yield TextDelta(text=chunk)

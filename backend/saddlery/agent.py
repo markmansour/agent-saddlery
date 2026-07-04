@@ -13,6 +13,7 @@ from saddlery.events import (
     RunFinished,
     RunStarted,
 )
+from saddlery.llm.base import TextDelta
 from saddlery.messages import Message
 
 if TYPE_CHECKING:
@@ -45,10 +46,11 @@ class Agent:
         parts: list[str] = []
         try:
             async for delta in self.provider.stream(messages, model=self.model):
-                parts.append(delta.text)
-                await emit(
-                    AssistantMessageDelta(session_id=sid, principal=principal, text=delta.text)
-                )
+                if isinstance(delta, TextDelta):
+                    parts.append(delta.text)
+                    await emit(
+                        AssistantMessageDelta(session_id=sid, principal=principal, text=delta.text)
+                    )
             await emit(
                 AssistantMessage(session_id=sid, principal=principal, content="".join(parts))
             )

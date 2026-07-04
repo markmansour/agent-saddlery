@@ -52,7 +52,13 @@ class AnthropicProvider(LLMProvider):
         self._client = client or anthropic.AsyncAnthropic()
         self._max_tokens = max_tokens
 
-    async def stream(self, messages: list[Message], *, model: str) -> AsyncIterator[ProviderDelta]:
+    async def stream(
+        self,
+        messages: list[Message],
+        *,
+        model: str,
+        tools: list[dict] | None = None,
+    ) -> AsyncIterator[ProviderDelta]:
         system, convo = split_system(messages)
         kwargs: dict = {"model": model, "max_tokens": self._max_tokens, "messages": convo}
         if system is not None:
