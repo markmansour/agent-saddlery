@@ -9,8 +9,8 @@ from __future__ import annotations
 
 from typing import Protocol, runtime_checkable
 
-from saddlery.events import AssistantMessage, Event, UserMessage
-from saddlery.messages import Message
+from saddlery.events import AssistantMessage, Event, ToolCall, ToolResult, UserMessage
+from saddlery.messages import Message, ToolResultBlock, ToolUseBlock
 
 
 class Session:
@@ -33,6 +33,32 @@ class Session:
                 messages.append(Message(role="user", content=event.content))
             elif isinstance(event, AssistantMessage):
                 messages.append(Message(role="assistant", content=event.content))
+            elif isinstance(event, ToolCall):
+                messages.append(
+                    Message(
+                        role="assistant",
+                        content=[
+                            ToolUseBlock(
+                                id=event.tool_call_id,
+                                name=event.tool_name,
+                                input=event.arguments,
+                            )
+                        ],
+                    )
+                )
+            elif isinstance(event, ToolResult):
+                messages.append(
+                    Message(
+                        role="user",
+                        content=[
+                            ToolResultBlock(
+                                tool_use_id=event.tool_call_id,
+                                content=event.content,
+                                is_error=event.is_error,
+                            )
+                        ],
+                    )
+                )
         return messages
 
 
