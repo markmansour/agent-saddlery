@@ -46,11 +46,11 @@ class LoggingSink(EventSink):
         self._log = structlog.get_logger()
 
     async def emit(self, event: Event) -> None:
-        # Info level for lifecycle events (start/finish), debug for content
+        # Log event being produced/emitted
         if event.type in ("run_started", "run_finished"):
-            self._log.info("event_emitted", event_type=event.type, event_data=event.model_dump())
+            self._log.info("event_produced", event_type=event.type, event_data=event.model_dump())
         else:
-            self._log.debug("event_emitted", event_type=event.type, event_data=event.model_dump())
+            self._log.debug("event_produced", event_type=event.type, event_data=event.model_dump())
         await self._sink.emit(event)
 
 

@@ -50,6 +50,10 @@ export class CoreSubprocess extends EventEmitter {
     });
 
     readline.on("line", (eventLine: string) => {
+      // Log received events
+      const fs = require("fs");
+      fs.appendFileSync("tui.log", `[recv] ${eventLine}\n`);
+
       try {
         const event = JSON.parse(eventLine) as CoreEvent;
         this.handleEvent(event);
@@ -149,7 +153,13 @@ export class CoreSubprocess extends EventEmitter {
       content,
     };
 
-    this.process.stdin.write(JSON.stringify(msg) + "\n");
+    const msgStr = JSON.stringify(msg);
+
+    // Log sent messages
+    const fs = require("fs");
+    fs.appendFileSync("tui.log", `[send] ${msgStr}\n`);
+
+    this.process.stdin.write(msgStr + "\n");
   }
 
   getSessionId(): string {
