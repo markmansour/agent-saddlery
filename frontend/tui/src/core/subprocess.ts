@@ -33,7 +33,10 @@ export class CoreSubprocess extends EventEmitter {
 
     this.process = spawn(
       "sh",
-      ["-c", `cd '${backendPath}' && uv run python -m saddlery.cli.main --json-input 2>>core.log`],
+      [
+        "-c",
+        `cd '${backendPath}' && uv run python -m saddlery.cli.main --json-input 2>&1 | tee core.log`,
+      ],
       {
         env,
         stdio: ["pipe", "pipe", "pipe"],
@@ -51,11 +54,14 @@ export class CoreSubprocess extends EventEmitter {
     });
 
     readline.on("line", (eventLine: string) => {
-      // Log received events
-      appendFileSync("tui.log", `[recv] ${eventLine}\n`);
-
       try {
         const event = JSON.parse(eventLine) as CoreEvent;
+        // Log parsed event type, not raw JSON
+        if (event.event) {
+          appendFileSync("tui.log", `[recv] ${event.event}\n`);
+        } else if (event.event_type) {
+          appendFileSync("tui.log", `[recv] ${event.event_type}\n`);
+        }
         this.handleEvent(event);
       } catch {
         // Ignore parse errors (e.g., stderr output)
