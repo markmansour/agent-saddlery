@@ -13,6 +13,7 @@ from saddlery.events import (
     Event,
     RunFinished,
     RunStarted,
+    SessionStarted,
 )
 from saddlery.transport.base import EventSink
 
@@ -27,7 +28,10 @@ class CliSink(EventSink):
         self._out = out
 
     async def emit(self, event: Event) -> None:
-        if isinstance(event, AssistantMessageDelta):
+        if isinstance(event, SessionStarted):
+            # SessionStarted doesn't output to terminal, but ensures event reaches TUI
+            pass
+        elif isinstance(event, AssistantMessageDelta):
             self._out.write(event.text)
             self._out.flush()
         elif isinstance(event, ErrorEvent):
