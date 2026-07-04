@@ -16,8 +16,8 @@ const ChatApp = () => {
   const [status, setStatus] = useState("Initializing...");
   const [sessionId, setSessionId] = useState<string>("");
   const [isRunning, setIsRunning] = useState(false);
-  const [assistantBuffer, setAssistantBuffer] = useState("");
   const coreRef = useRef<CoreSubprocess | null>(null);
+  const pendingMessageIdRef = useRef<string | null>(null);
 
   // Initialize core subprocess
   useEffect(() => {
@@ -33,43 +33,27 @@ const ChatApp = () => {
 
         // Handle events from core
         core.on("run_start", () => {
-          setAssistantBuffer("");
           setStatus("Processing...");
+          setIsRunning(true);
         });
 
         core.on("assistant_delta", (text: string) => {
-          setAssistantBuffer((prev) => prev + text);
-          // Update last message in real-time
-          setMessages((prev) => {
-            const lastMsg = prev[prev.length - 1];
-            if (lastMsg && lastMsg.role === "assistant") {
-              return [...prev.slice(0, -1), { ...lastMsg, content: lastMsg.content + text }];
-            }
-            return prev;
-          });
+          // Update the pending assistant message with the delta
+          const msgId = pendingMessageIdRef.current;
+          if (msgId) {
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === msgId ? { ...msg, content: msg.content + text } : msg
+              )
+            );
+          }
         });
 
         core.on("run_finish", () => {
-          // Finalize assistant message
-          if (assistantBuffer) {
-            setMessages((prev) => {
-              const lastMsg = prev[prev.length - 1];
-              if (lastMsg && lastMsg.role === "assistant") {
-                return [...prev.slice(0, -1), { ...lastMsg, content: assistantBuffer }];
-              }
-              return [
-                ...prev,
-                {
-                  id: Date.now().toString(),
-                  role: "assistant",
-                  content: assistantBuffer,
-                },
-              ];
-            });
-          }
+          // Clear the pending message ID
+          pendingMessageIdRef.current = null;
           setStatus("Ready");
           setIsRunning(false);
-          setAssistantBuffer("");
         });
 
         core.on("error", (err: Error) => {
@@ -95,7 +79,7 @@ const ChatApp = () => {
         coreRef.current.stop();
       }
     };
-  }, [assistantBuffer]);
+  }, []);
 
   const handleUserMessage = (content: string) => {
     if (isRunning || !coreRef.current) return;
@@ -108,18 +92,19 @@ const ChatApp = () => {
     };
     setMessages((prev) => [...prev, userMsg]);
 
-    // Add placeholder for assistant message
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: "",
-      },
-    ]);
+    // Create placeholder for assistant message
+    const assistantMsgId = (Date.now() + 1).toString();
+    const assistantMsg: Message = {
+      id: assistantMsgId,
+      role: "assistant",
+      content: "",
+    };
+    setMessages((prev) => [...prev, assistantMsg]);
+
+    // Track which message we're filling in
+    pendingMessageIdRef.current = assistantMsgId;
 
     // Send to core
-    setIsRunning(true);
     try {
       coreRef.current.sendUserMessage(content);
     } catch (err) {
