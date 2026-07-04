@@ -1,6 +1,7 @@
 import { spawn, ChildProcess } from "child_process";
 import { EventEmitter } from "events";
 import { createInterface } from "readline";
+import { appendFileSync } from "fs";
 
 export interface CoreEvent {
   event?: string;
@@ -58,7 +59,17 @@ export class CoreSubprocess extends EventEmitter {
       }
     });
 
-    // Note: subprocess stderr is redirected to core.log in the shell command above
+    // Capture stderr logs from subprocess
+    if (this.process.stderr) {
+      const stderrReadline = createInterface({
+        input: this.process.stderr,
+        crlfDelay: Infinity,
+      });
+
+      stderrReadline.on("line", (line: string) => {
+        appendFileSync("core.log", `${line}\n`);
+      });
+    }
 
     // Handle process errors
     this.process.on("error", (err) => {
