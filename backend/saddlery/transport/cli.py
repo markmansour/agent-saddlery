@@ -29,10 +29,14 @@ class CliSink(EventSink):
 
     async def emit(self, event: Event) -> None:
         if isinstance(event, SessionStarted):
-            # Output SessionStarted as JSON so TUI receives it
+            # Output SessionStarted as JSON in AG-UI format
             import json
 
-            self._out.write(json.dumps(event.model_dump()) + "\n")
+            output = {
+                "event_type": "session_started",
+                "event_data": event.model_dump(mode="json"),
+            }
+            self._out.write(json.dumps(output) + "\n")
             self._out.flush()
         elif isinstance(event, AssistantMessageDelta):
             self._out.write(event.text)

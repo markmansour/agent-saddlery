@@ -88,6 +88,7 @@ export class CoreSubprocess extends EventEmitter {
 
       stderrReadline.on("line", (line: string) => {
         appendFileSync("core.log", `${line}\n`);
+        appendFileSync("tui.log", `[stderr] ${line}\n`);
       });
     }
 
