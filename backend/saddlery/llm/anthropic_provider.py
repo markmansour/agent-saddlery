@@ -18,10 +18,26 @@ if TYPE_CHECKING:
     from saddlery.messages import Message
 
 
+def _content_for_wire(content: str | list) -> str | list[dict]:
+    """Serialize message content for the Anthropic wire format.
+
+    Anthropic's API accepts both plain strings and lists of content blocks.
+    """
+    if isinstance(content, str):
+        return content
+    return [block.model_dump(mode="json") for block in content]
+
+
 def split_system(messages: list[Message]) -> tuple[str | None, list[dict]]:
     """Separate system messages (Anthropic's `system` param) from the conversation."""
-    system_parts = [m.content for m in messages if m.role == "system"]
-    convo = [{"role": m.role, "content": m.content} for m in messages if m.role != "system"]
+    system_parts = [
+        m.content for m in messages if m.role == "system" and isinstance(m.content, str)
+    ]
+    convo = [
+        {"role": m.role, "content": _content_for_wire(m.content)}
+        for m in messages
+        if m.role != "system"
+    ]
     system = "\n\n".join(system_parts) if system_parts else None
     return system, convo
 
