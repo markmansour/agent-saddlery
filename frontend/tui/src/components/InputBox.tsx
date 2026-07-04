@@ -13,12 +13,12 @@ const InputBox = ({ onSubmit, disabled = false }: InputBoxProps) => {
   useEffect(() => {
     if (disabled) return;
 
-    const stdin = process.stdin;
+    const stdin = process.stdin as NodeJS.ReadStream;
 
     // Make stdin emit keypress events
     keypress(stdin);
 
-    const handleKeypress = (ch: string, key: any) => {
+    const handleKeypress = (ch: string, key: Record<string, unknown>) => {
       if (key.name === "return") {
         // Submit on Enter
         if (input.trim()) {

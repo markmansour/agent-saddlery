@@ -6,45 +6,62 @@
  * 2. TUI sends user message to core
  * 3. Core streams assistant_message_delta events (tokens)
  * 4. TUI receives and buffers tokens into final message
+ *
+ * Note: These are unit tests only. Full integration test requires:
+ * 1. Python backend available at ../../backend
+ * 2. uv command in PATH
+ * 3. SADDLERY_LOG_FORMAT=json support
+ * See README.md for manual integration test instructions.
  */
 
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { CoreSubprocess } from "../core/subprocess";
 
-describe("Integration: TUI ↔ Core", () => {
+describe("CoreSubprocess integration", () => {
   let core: CoreSubprocess;
 
-  beforeEach(async () => {
+  beforeEach(() => {
     core = new CoreSubprocess();
-    // Note: This would actually start the Python subprocess
-    // For CI, we'd need to mock this or ensure Python env is available
   });
 
   afterEach(() => {
-    core.stop();
+    if (core) {
+      core.stop();
+    }
   });
 
-  test("core subprocess spawns and receives session_started", (done) => {
-    // This is a manual/integration test
-    // Real execution requires:
-    // 1. Python backend to be available at ../../backend
-    // 2. uv command in PATH
-    // 3. SADDLERY_LOG_FORMAT=json support
-
-    console.log(
-      "Integration test: Start core subprocess and verify session_started event"
-    );
-    console.log("Requires: Python backend available, uv installed");
-    console.log("To run manually: npm run build && npm start");
-    done();
+  it("should instantiate and have core methods", () => {
+    expect(core).toBeDefined();
+    expect(typeof core.sendUserMessage).toBe("function");
+    expect(typeof core.getSessionId).toBe("function");
+    expect(typeof core.stop).toBe("function");
   });
 
-  test("user message is sent to core and streamed response arrives", (done) => {
-    // Manual test:
-    // 1. Start TUI: npm run dev
-    // 2. Type a message
-    // 3. Verify tokens stream to display
-
-    console.log("Manual test: Type message in TUI, verify streaming response");
-    done();
+  it("should start with empty session ID", () => {
+    expect(core.getSessionId()).toBe("");
   });
+
+  // Manual integration tests (requires Python backend)
+  // Uncomment and run with: npm run test
+  // Prerequisites: python backend at ../../backend, uv installed
+  //
+  // it("should start core subprocess and extract session ID", async () => {
+  //   await core.start();
+  //   const sessionId = core.getSessionId();
+  //   expect(sessionId).not.toBe("");
+  //   expect(sessionId.length).toBeGreaterThan(0);
+  // });
+  //
+  // it("should send user message and receive streaming response", async () => {
+  //   await core.start();
+  //   const messages: string[] = [];
+  //   core.on("assistant_delta", (text: string) => {
+  //     messages.push(text);
+  //   });
+  //   core.sendUserMessage("hello");
+  //   await new Promise((resolve) => {
+  //     core.on("run_finish", resolve);
+  //   });
+  //   expect(messages.length).toBeGreaterThan(0);
+  // });
 });

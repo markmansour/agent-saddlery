@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Text, Box } from "ink";
+import { Box } from "ink";
 import MessageHistory from "./MessageHistory.js";
 import InputBox from "./InputBox.js";
 import StatusLine from "./StatusLine.js";

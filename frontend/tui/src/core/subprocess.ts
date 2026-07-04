@@ -46,11 +46,11 @@ export class CoreSubprocess extends EventEmitter {
       crlfDelay: Infinity,
     });
 
-    readline.on("line", (line) => {
+    readline.on("line", (eventLine: string) => {
       try {
-        const event = JSON.parse(line) as CoreEvent;
+        const event = JSON.parse(eventLine) as CoreEvent;
         this.handleEvent(event);
-      } catch (e) {
+      } catch {
         // Ignore parse errors (e.g., stderr output)
       }
     });
@@ -61,7 +61,7 @@ export class CoreSubprocess extends EventEmitter {
       crlfDelay: Infinity,
     });
 
-    stderrReadline.on("line", (line) => {
+    stderrReadline.on("line", () => {
       // Ignore stderr for now; could log to file or emit separate event
     });
 

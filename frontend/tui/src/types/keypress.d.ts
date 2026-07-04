@@ -1,4 +1,4 @@
 declare module "keypress" {
-  function keypress(stream: NodeJS.ReadStream): void;
+  function keypress(stream: NodeJS.ReadableStream): void;
   export = keypress;
 }
