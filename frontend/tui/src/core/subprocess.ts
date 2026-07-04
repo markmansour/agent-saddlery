@@ -175,6 +175,26 @@ export class CoreSubprocess extends EventEmitter {
       const eventData = event.event_data as Record<string, unknown>;
       const content = eventData?.content as string | undefined;
       appendFileSync("tui.log", `${ts} [✓ assistant] ${content}\n`);
+    } else if (eventType === "tool_call") {
+      const eventData = event.event_data as Record<string, unknown>;
+      const toolCallId = eventData?.tool_call_id as string | undefined;
+      const toolName = eventData?.tool_name as string | undefined;
+      const args = eventData?.arguments as Record<string, unknown> | undefined;
+      const ts = new Date().toISOString();
+      appendFileSync("tui.log", `${ts} [→ tool] ${toolName}(${JSON.stringify(args)})\n`);
+      if (toolCallId && toolName) {
+        this.emit("tool_call", { id: toolCallId, name: toolName, arguments: args ?? {} });
+      }
+    } else if (eventType === "tool_result") {
+      const eventData = event.event_data as Record<string, unknown>;
+      const toolCallId = eventData?.tool_call_id as string | undefined;
+      const content = eventData?.content as string | undefined;
+      const isError = eventData?.is_error as boolean | undefined;
+      const ts = new Date().toISOString();
+      appendFileSync("tui.log", `${ts} [← tool] ${isError ? "error" : "success"}: ${content?.substring(0, 60)}\n`);
+      if (toolCallId) {
+        this.emit("tool_result", { id: toolCallId, content: content ?? "", isError: isError ?? false });
+      }
     } else if (eventType === "run_finished") {
       const ts = new Date().toISOString();
       appendFileSync("tui.log", `${ts} [✓ finished]\n`);
