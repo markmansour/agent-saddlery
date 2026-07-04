@@ -64,7 +64,6 @@ export class CoreSubprocess extends EventEmitter {
     readline.on("line", (eventLine: string) => {
       try {
         const event = JSON.parse(eventLine) as CoreEvent;
-        appendFileSync("tui.log", `[parsed] ${event.event_type || event.event}\n`);
         this.handleEvent(event);
       } catch (e) {
         // Log non-JSON lines for debugging
@@ -87,7 +86,7 @@ export class CoreSubprocess extends EventEmitter {
 
       stderrReadline.on("line", (line: string) => {
         appendFileSync("core.log", `${line}\n`);
-        appendFileSync("tui.log", `[stderr] ${line}\n`);
+        // Don't log stderr to tui.log — it's too verbose. Core logs go to core.log
       });
     }
 
@@ -118,13 +117,12 @@ export class CoreSubprocess extends EventEmitter {
       };
 
       const onEvent = (event: CoreEvent) => {
-        appendFileSync("tui.log", `[onEvent] received ${event.event_type || event.event}\n`);
         const sessionId =
           (event.session_id as string | undefined) ||
           (event.event_data?.session_id as string | undefined);
         if ((event.event_type === "session_started" || event.event === "session_started") && sessionId) {
-          appendFileSync("tui.log", `[onEvent] GOT session_started, resolving\n`);
           this.sessionId = sessionId;
+          appendFileSync("tui.log", `[✓] Session started: ${sessionId.substring(0, 8)}\n`);
           cleanup();
           resolve();
         }
@@ -161,19 +159,23 @@ export class CoreSubprocess extends EventEmitter {
       // Already handled in start()
       return;
     } else if (eventType === "run_started") {
+      appendFileSync("tui.log", `[→] run started\n`);
       this.emit("run_start");
     } else if (eventType === "assistant_message_delta") {
       const eventData = event.event_data as Record<string, unknown>;
       const text = eventData?.text as string | undefined;
       if (text) {
-        appendFileSync("tui.log", `[delta] ${text.substring(0, 30)}\n`);
         this.emit("assistant_delta", text);
       }
+    } else if (eventType === "assistant_message") {
+      appendFileSync("tui.log", `[✓] message complete\n`);
     } else if (eventType === "run_finished") {
+      appendFileSync("tui.log", `[✓] run finished\n`);
       this.emit("run_finish");
     } else if (eventType === "error") {
       const eventData = event.event_data as Record<string, unknown>;
       const message = eventData?.message as string | undefined;
+      appendFileSync("tui.log", `[✗] error: ${message}\n`);
       if (message) {
         this.emit("error", new Error(message));
       }
