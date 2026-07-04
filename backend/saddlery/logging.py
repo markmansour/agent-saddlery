@@ -16,11 +16,14 @@ def configure_logging() -> None:
 
     Environment variables:
     - SADDLERY_LOG_FORMAT: 'json' (default) or 'dev' for format
-    - SADDLERY_LOG_OUTPUT: 'file' (default) or 'console'
-    - SADDLERY_LOG_FILE: path to log file (default: 'core.log')
+    - SADDLERY_LOG_OUTPUT: 'console' (default, stdout) or 'file'
+    - SADDLERY_LOG_FILE: path to log file (default: 'core.log', if SADDLERY_LOG_OUTPUT=file)
+
+    Default is stdout (console) for subprocess communication. Set SADDLERY_LOG_OUTPUT=file
+    to write to a file instead.
     """
     log_format = os.getenv("SADDLERY_LOG_FORMAT", "json").lower()
-    log_output = os.getenv("SADDLERY_LOG_OUTPUT", "file").lower()
+    log_output = os.getenv("SADDLERY_LOG_OUTPUT", "console").lower()
     log_file = os.getenv("SADDLERY_LOG_FILE", "core.log")
 
     processors: list = [
@@ -33,12 +36,12 @@ def configure_logging() -> None:
     else:
         processors.append(structlog.dev.ConsoleRenderer(colors=False))
 
-    # Set up logger: file (default) or console
-    if log_output == "console":
-        logger_factory = structlog.PrintLoggerFactory()
-    else:  # "file" (default)
+    # Set up logger: console (default, stdout) or file
+    if log_output == "file":
         file_out = open(log_file, "a")  # noqa: SIM115
         logger_factory = structlog.PrintLoggerFactory(file=file_out)
+    else:  # "console" (default)
+        logger_factory = structlog.PrintLoggerFactory()
 
     structlog.configure(
         processors=processors,
