@@ -40,7 +40,7 @@ stays the canonical statement of *why* the rule exists.
 - [2026-07-03 — Executing the repo-layout rename (`core/` → `backend/`)](2026-07-03-repo-layout-rename.md)
 
 ## Phase retrospectives
-- _(none yet — first one at the close of Phase 0)_
+- [2026-07-04 — Phase 0 Retrospective (Walking skeleton complete)](2026-07-04-phase-0-retrospective.md)
 
 ---
 
