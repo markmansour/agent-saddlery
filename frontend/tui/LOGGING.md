@@ -1,92 +1,53 @@
 # TUI & Core Logging
 
-## Quick Start
+## The Architecture
+
+```
+Terminal
+  ↓
+TUI (TypeScript/Ink)
+  ├─ Displays user messages, responses, status
+  └─ Spawns core subprocess
+      ↓
+      Core (Python)
+      ├─ Reads user messages from stdin (from TUI)
+      ├─ Processes via LLM
+      └─ Writes events to stdout (to TUI)
+```
+
+**Key point:** Core is a subprocess of TUI. Its stdout is **piped to TUI**, not your terminal.
+
+## Where to Find Logs
+
+### 1. TUI Output (What You See)
 
 ```bash
-# Terminal 1: Run TUI (shows everything in terminal)
 cd frontend/tui
 npm run dev
-
-# Terminal 2 (optional): Watch core logs separately
-cd backend
-SADDLERY_LOG_FORMAT=json PYTHONUNBUFFERED=1 uv run python -m saddlery.cli.main --json-input | jq .
 ```
 
-## Where Logs Go
+You see in the terminal:
+- User messages you type
+- Assistant responses (streaming)
+- Status ("Ready", "Processing...", errors)
 
-### 1. TUI Output (stdout/stderr in terminal)
+This is the **only output** when running normally.
 
-When you run `npm run dev`, all logs appear in the terminal window:
+### 2. Core Logs (Hidden in Subprocess)
 
-```
-[No messages yet. Start typing to begin.]
+To see core logs, you have two options:
 
-> hello
+#### Option A: Capture Subprocess Output (Recommended)
 
-[session_id] Ready
-```
+Modify `src/core/subprocess.ts` to log what the subprocess outputs:
 
-**What you see:**
-- User input
-- Assistant responses (streaming in real-time)
-- Status messages ("Processing...", "Ready")
-- Error messages
-
-### 2. Core Logs (Python Backend)
-
-The Python core outputs structured logs via stdout in **two formats**:
-
-#### Dev Format (Human-readable)
-```bash
-cd backend
-uv run python -m saddlery.cli.main
-```
-
-Output:
-```
-2026-07-04T00:30:42.456869Z [info     ] session_started   session_id=ef5b195c97754f46b246e26e424af97f principal=local
-```
-
-#### JSON Format (Machine-readable)
-```bash
-cd backend
-SADDLERY_LOG_FORMAT=json uv run python -m saddlery.cli.main
-```
-
-Output:
-```json
-{"session_id": "ef5b195c97754f46b246e26e424af97f", "principal": "local", "event": "session_started", "level": "info", "timestamp": "2026-07-04T00:30:42.456869Z"}
-```
-
-### 3. Debugging: Watch Raw Core Events
-
-To see exactly what events the core emits:
-
-```bash
-cd backend
-SADDLERY_LOG_FORMAT=json PYTHONUNBUFFERED=1 uv run python -m saddlery.cli.main --json-input | jq .
-```
-
-Then in another terminal, send test messages:
-```bash
-echo '{"type": "user_message", "content": "hello"}' | nc localhost 5000
-```
-
-Or use the test script:
-```bash
-cd frontend/tui
-node debug-subprocess.js
-```
-
-### 4. Subprocess Communication (TUI → Core)
-
-The TUI communicates with the core via stdin/stdout JSON. To see this:
-
-**From TUI side:**
 ```typescript
-// In src/core/subprocess.ts
+proc.stderr?.on("data", (data) => {
+  console.error("[core stderr]", data.toString());
+});
+
 readline.on("line", (eventLine: string) => {
-  console.log("[core event]", eventLine);  // Add this for debugging
+  console.log("[core event]", eventLine);  // ← Add this
   try {
     const event = JSON.parse(eventLine) as CoreEvent;
     this.handleEvent(event);
@@ -96,121 +57,148 @@ readline.on("line", (eventLine: string) => {
 });
 ```
 
-**From core side:**
+Then run:
 ```bash
-SADDLERY_LOG_FORMAT=json uv run python -m saddlery.cli.main --json-input 2>&1 | tee core.log
+npm run dev 2>&1 | tee tui.log
 ```
 
-This writes logs to `core.log` while also showing them in terminal.
+Now both TUI and core logs appear in terminal (and saved to `tui.log`).
 
-## Log Format Reference
+#### Option B: Run Core Standalone (Breaks TUI Connection)
 
-### Session Events
-```json
-{"event": "session_started", "session_id": "...", "principal": "local"}
-{"event": "session_finished", "session_id": "...", "event_count": 2}
+If you want to test the core without the TUI:
+
+```bash
+cd backend
+SADDLERY_LOG_FORMAT=json PYTHONUNBUFFERED=1 uv run python -m saddlery.cli.main --json-input
 ```
 
-### Agent Events (wrapped in AG-UI format)
+Then send test messages:
+```bash
+echo '{"type": "user_message", "content": "hello"}' | nc localhost 5000
+```
+
+**But this won't work with TUI** — they're separate processes.
+
+## Log Formats
+
+### TUI Logs (TypeScript console)
+```
+[No messages yet. Start typing to begin.]
+> hello
+[session_id] Ready
+```
+
+### Core Logs (Python structlog)
+
+**Dev format** (human-readable):
+```
+2026-07-04T00:30:42.456869Z [info     ] session_started   session_id=ef5b195c principal=local
+```
+
+**JSON format** (machine-readable):
 ```json
-{"event": "event_emitted", "event_type": "run_started", "event_data": {...}}
-{"event": "event_emitted", "event_type": "assistant_message_delta", "event_data": {"text": "H"}}
-{"event": "event_emitted", "event_type": "run_finished", "event_data": {...}}
-{"event": "event_emitted", "event_type": "error", "event_data": {"message": "..."}}
+{"session_id": "ef5b195c", "principal": "local", "event": "session_started", "level": "info"}
 ```
 
 ## Debugging Workflows
 
-### Problem: No response from core
+### Problem: No response from TUI
 
-1. **Check subprocess is running:**
+1. **Check TUI is running:**
    ```bash
-   ps aux | grep "python -m saddlery"
-   ```
-
-2. **Check core logs:**
-   ```bash
-   cd backend
-   SADDLERY_LOG_FORMAT=json PYTHONUNBUFFERED=1 uv run python -m saddlery.cli.main --json-input 2>&1 | head -20
-   ```
-
-3. **Check for errors:**
-   Look for `"event_type": "error"` in JSON logs
-
-### Problem: Messages not streaming
-
-1. **Check deltas are arriving:**
-   ```bash
-   # Terminal 1
-   cd frontend/tui
    npm run dev
+   ```
+   Should see "Ready" in status line.
 
-   # Terminal 2
-   cd backend
-   SADDLERY_LOG_FORMAT=json PYTHONUNBUFFERED=1 uv run python -m saddlery.cli.main --json-input | jq 'select(.event_type=="assistant_message_delta")'
+2. **Type a message and watch:**
+   - Does status change to "Processing..."?
+   - Does a response appear?
+   - Are there any error messages?
+
+3. **Add debug logging to subprocess:**
+   Edit `src/core/subprocess.ts` and add console.log to see raw events:
+   ```typescript
+   readline.on("line", (eventLine: string) => {
+     console.log("[DEBUG] Raw event:", eventLine);  // ← Add this
+     // ... rest of code
+   });
    ```
 
-2. **Watch TUI state changes:**
-   Add console.log to ChatApp.tsx:
+4. **Recompile and test:**
+   ```bash
+   npm run build
+   npm run dev
+   ```
+
+### Problem: Response is incomplete or wrong
+
+1. **Add message state debugging:**
+   Edit `src/components/ChatApp.tsx`:
    ```typescript
    core.on("assistant_delta", (text: string) => {
-     console.log("[delta]", JSON.stringify(text), "total:", messages[messages.length-1]?.content.length);
+     console.log("[DEBUG] Delta received:", JSON.stringify(text));
      // ... rest of handler
    });
    ```
 
-### Problem: State overwrites
+2. **Check state updates:**
+   ```typescript
+   setMessages((prev) => {
+     const msg = prev[prev.length - 1];
+     console.log("[DEBUG] Updating message:", msg?.id, "with text:", text);
+     return /* ... */;
+   });
+   ```
 
-Check message IDs:
+3. **Rebuild and test:**
+   ```bash
+   npm run build
+   npm run dev
+   ```
+
+### Problem: Subprocess won't start
+
+Check core can run standalone:
 ```bash
-# In debug script or console
-messages.forEach(m => console.log(m.id, m.role, m.content.length, "chars"));
+cd backend
+SADDLERY_LOG_FORMAT=json uv run python -m saddlery.cli.main --json-input < /dev/null
 ```
 
-Verify each message has a unique ID and its own content.
-
-## Environment Variables
-
-```bash
-# Format of core logs
-SADDLERY_LOG_FORMAT=json      # JSON output (default: dev)
-SADDLERY_LOG_FORMAT=dev       # Human-readable
-
-# Python buffering
-PYTHONUNBUFFERED=1            # Flush stdout immediately
-
-# Node debugging
-DEBUG=*                        # Node.js module debugging
-```
-
-## Files to Monitor
-
-| File | Purpose | Command |
-|------|---------|---------|
-| stdout | TUI output | `npm run dev` |
-| Backend core output | Agent events | `SADDLERY_LOG_FORMAT=json uv run python -m saddlery.cli.main --json-input` |
-| core.log | Saved backend logs | `... 2>&1 \| tee core.log` |
-| dist/index.js | Compiled TUI | Generated by `npm run build` |
+Should output session_started event. If not:
+- Check Python environment: `uv sync`
+- Check mock provider works: `uv run pytest tests/test_mm6_demo.py`
+- Check CLI is importable: `uv run python -m saddlery.cli.main --help`
 
 ## Best Debugging Setup
 
-**Terminal 1: TUI**
+### To see everything:
+
+**Terminal 1:**
 ```bash
 cd frontend/tui
-npm run dev
+npm run build
+npm run dev 2>&1 | tee debug.log
 ```
 
-**Terminal 2: Core logs (optional)**
+Then type messages. Both TUI and (with the debug logging added) core events will appear.
+
+**Terminal 2 (optional):**
 ```bash
-cd backend
-SADDLERY_LOG_FORMAT=json PYTHONUNBUFFERED=1 uv run python -m saddlery.cli.main --json-input | jq .
+tail -f frontend/tui/debug.log | grep "DEBUG"
 ```
 
-**Terminal 3: Grep for specific events**
+Or to watch only for errors:
 ```bash
-# In another backend terminal, if Terminal 2 is running core directly
-cd backend
-SADDLERY_LOG_FORMAT=json PYTHONUNBUFFERED=1 uv run python -m saddlery.cli.main --json-input | jq 'select(.event_type=="assistant_message_delta") | .event_data.text' -r
+tail -f frontend/tui/debug.log | grep -E "error|Error|ERROR"
 ```
 
-This shows only the streaming text tokens, one per line.
+## Summary
+
+- **TUI and core are connected via subprocess** — not separate systems
+- **Core output is hidden** unless you add logging to `src/core/subprocess.ts`
+- **To debug:** Add `console.log()` statements to subprocess event handler
+- **To test core alone:** Run it separately with `uv run python -m saddlery.cli.main`
+- **To see everything:** Rebuild TUI after adding debug logs, then pipe output to file
+
+The key insight: They're not truly separate backends/frontends in the logging sense — the TUI **owns** the core subprocess and controls its lifecycle.
