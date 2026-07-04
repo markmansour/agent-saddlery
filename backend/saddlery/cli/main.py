@@ -16,6 +16,8 @@ from saddlery.llm.anthropic_provider import AnthropicProvider
 from saddlery.llm.mock_provider import MockLMProvider
 from saddlery.logging import configure_logging
 from saddlery.session import Session
+from saddlery.tools.read_file import FileReadTool
+from saddlery.tools.registry import ToolRegistry
 from saddlery.transport.cli import CliSink, LoggingSink
 
 
@@ -23,7 +25,7 @@ def build_agent() -> Agent:
     # Use mock provider if no API key or if --test-mode is set
     use_mock = "--test-mode" in sys.argv or not os.environ.get("ANTHROPIC_API_KEY")
     provider = MockLMProvider() if use_mock else AnthropicProvider()
-    return Agent(provider=provider)
+    return Agent(provider=provider, tools=ToolRegistry([FileReadTool()]))
 
 
 def _use_json_input() -> bool:
