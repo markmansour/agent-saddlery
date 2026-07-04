@@ -6,4 +6,8 @@ const App = () => {
   return <ChatApp />;
 };
 
-render(<App />);
+// Pass stdin/stdout explicitly for TTY support
+render(<App />, {
+  stdin: process.stdin,
+  stdout: process.stdout,
+});
