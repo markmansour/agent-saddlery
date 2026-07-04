@@ -168,7 +168,9 @@ export class CoreSubprocess extends EventEmitter {
         this.emit("assistant_delta", text);
       }
     } else if (eventType === "assistant_message") {
-      appendFileSync("tui.log", `[✓] message complete\n`);
+      const eventData = event.event_data as Record<string, unknown>;
+      const content = eventData?.content as string | undefined;
+      appendFileSync("tui.log", `[✓] assistant: ${content?.substring(0, 50)}${content && content.length > 50 ? "..." : ""}\n`);
     } else if (eventType === "run_finished") {
       appendFileSync("tui.log", `[✓] run finished\n`);
       this.emit("run_finish");
@@ -193,7 +195,7 @@ export class CoreSubprocess extends EventEmitter {
     };
 
     const msgStr = JSON.stringify(msg);
-    appendFileSync("tui.log", `[send] ${msgStr}\n`);
+    appendFileSync("tui.log", `[→] user: ${content.substring(0, 50)}${content.length > 50 ? "..." : ""}\n`);
     this.process.stdin.write(msgStr + "\n");
   }
 
