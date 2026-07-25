@@ -22,6 +22,17 @@ extensions, and pluggable LLM providers.
   is designed in at Phase 0.
 - **Plugins** are a packaging layer over primitives (skills / hooks / MCP / agents / commands), Phase 4.
 
+## Tool calling
+
+`Agent.run()` loops a streamed turn against the `LLMProvider`; when the model requests a tool,
+the agent looks it up in a `ToolRegistry`, executes it, and appends the result to the event log
+before looping back for another turn (up to `max_tool_iterations`). Tools mirror MCP's shape
+(name/description/input_schema + async `call()`) so a Phase 1 MCP client is a drop-in
+implementation of the same seam. Tool execution never raises: failures — unknown tool name, bad
+arguments, file errors — become `ToolResult(is_error=True)`, not exceptions. See
+[`docs/diagrams/tool-round-trip-sequence.md`](docs/diagrams/tool-round-trip-sequence.md) for the
+full sequence and [`docs/tools/README.md`](docs/tools/README.md) for the tool catalog.
+
 ## Roadmap
 
 P0 walking skeleton → P1 MCP + permissions → P2 multi-frontend server → P3 multi-user + execution

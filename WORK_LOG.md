@@ -127,15 +127,16 @@ cd backend && uv run pytest tests/test_read_file.py -v
 - **Location:** See `research/devlog/2026-07-04-mm8-tool-round-trip.md` for full audit
 
 ### Documentation Updates Needed
-- [ ] Update architecture diagrams to show tool round-trip
-- [ ] Add "Tool Calling" section to README.md
-- [ ] Document FileReadTool usage and safety constraints
-- [ ] Add testing guide to DEVELOPMENT.md
+- [x] Update architecture diagrams to show tool round-trip — `docs/diagrams/tool-round-trip-sequence.md`
+  (hand-authored) plus regenerated `class-core.md`/`packages-core.md`/`events-er.md` (now include
+  `ToolCall`/`ToolResult`)
+- [x] Add "Tool Calling" section to README.md
+- [x] Document FileReadTool usage and safety constraints — `docs/tools/README.md`
+- [x] Add testing guide to DEVELOPMENT.md — new file at repo root
 
 ### Type Checking Tool
-- **Issue:** `uv run py check` fails (py not found)
-- **Fix needed:** Check pyproject.toml for correct type-checker command
-- **Current:** Unclear which tool is used (pyright? mypy?)
+- **Resolved:** the correct command is `uv run ty check` (uses [`ty`](https://github.com/astral-sh/ty),
+  not `pyright`/`mypy`). `py check` was a typo in earlier notes.
 
 ---
 
@@ -198,8 +199,8 @@ uv run pytest tests/ --cov=saddlery --cov-report=html
 |------|--------|-------|
 | All tests pass | ✅ | 71/72 (1 pre-existing failure) |
 | Lint passes | ✅ | `ruff check`, `ruff format` clean |
-| Type check | ❌ | `py check` command broken; need to fix |
-| Documentation | ⚠️ | Devlog written; architecture docs need update |
+| Type check | ✅ | `uv run ty check` passes |
+| Documentation | ✅ | Devlog, README, docs/tools, DEVELOPMENT.md, diagrams all updated |
 | Logging audit | ⚠️ | Audit complete; improvements not yet implemented |
 | Code review | ⏳ | Awaiting user review before merge |
 

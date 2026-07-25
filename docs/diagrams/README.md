@@ -8,6 +8,7 @@ Mermaid diagrams for the `saddlery` core. They render inline on GitHub and Linea
 | [packages-core.md](packages-core.md) | Generated — pyreverse package diagram of `saddlery`. |
 | [events-er.md](events-er.md) | Generated — ER diagram of the event models + `Message`. |
 | [echo-loop-sequence.md](echo-loop-sequence.md) | Hand-authored — the 0.1 echo-loop sequence. |
+| [tool-round-trip-sequence.md](tool-round-trip-sequence.md) | Hand-authored — the MM-8 tool-calling round-trip. |
 
 ## Regenerate
 
