@@ -4,6 +4,8 @@ Starting the app (backend, TUI) is in the root [`README.md`](README.md#quick-sta
 
 ## Running checks
 
+### Backend
+
 From `backend/`:
 
 ```bash
@@ -12,6 +14,21 @@ uv run ruff check .          # lint
 uv run ruff format --check . # format (dry-run)
 uv run ty check              # type checking — note: `ty`, not `py` or `mypy`/`pyright`
 ```
+
+### TUI
+
+From `frontend/tui/`:
+
+```bash
+npm run test:run    # tests (vitest, run once — `npm test` runs in watch mode)
+npm run type-check  # tsc --noEmit
+npm run format      # prettier --write src
+```
+
+`npm run lint` (eslint) is currently broken — `eslint.config.js` throws
+`TypeError: Cannot read properties of undefined (reading 'recommended')` on load, so it doesn't
+actually check anything right now. Don't rely on it until the config is fixed; `type-check` and
+the test suite are the checks that currently work.
 
 ## Testing tool calls
 
