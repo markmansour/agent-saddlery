@@ -23,7 +23,14 @@ from saddlery.transport.cli import CliSink, LoggingSink
 
 def build_agent() -> Agent:
     # Use mock provider if no API key or if --test-mode is set
-    use_mock = "--test-mode" in sys.argv or not os.environ.get("ANTHROPIC_API_KEY")
+    test_mode_flag = "--test-mode" in sys.argv
+    has_api_key = bool(os.environ.get("ANTHROPIC_API_KEY"))
+    use_mock = test_mode_flag or not has_api_key
+    if use_mock:
+        structlog.get_logger().warning(
+            "using_mock_provider",
+            reason="--test-mode flag set" if test_mode_flag else "ANTHROPIC_API_KEY not set",
+        )
     provider = MockLMProvider() if use_mock else AnthropicProvider()
     return Agent(provider=provider, tools=ToolRegistry([FileReadTool()]))
 
