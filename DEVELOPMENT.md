@@ -26,11 +26,6 @@ npm run type-check  # tsc --noEmit
 npm run format      # prettier --write src
 ```
 
-If `npm run lint` throws `TypeError: Cannot read properties of undefined (reading 'recommended')`,
-`node_modules/eslint-plugin-react` is stale (pre-7.33, before flat-config support was added) even
-though `package.json`/`package-lock.json` specify a newer version — run `npm ci` to reinstall from
-the lockfile.
-
 ## Testing tool calls
 
 Tool-calling tests live in `backend/tests/`:
