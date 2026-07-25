@@ -69,7 +69,11 @@ export class CoreSubprocess extends EventEmitter {
         this.handleEvent(event);
       } catch (e) {
         const ts = new Date().toISOString();
-        appendFileSync("tui.log", `${ts} [unparseable] ${eventLine.substring(0, 60)}\n`);
+        const message = e instanceof Error ? e.message : String(e);
+        appendFileSync(
+          "tui.log",
+          `${ts} [unparseable] ${message}: ${eventLine.substring(0, 60)}\n`
+        );
       }
     });
 
