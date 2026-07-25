@@ -1,5 +1,7 @@
 # Development
 
+Starting the app (backend, TUI) is in the root [`README.md`](README.md#quick-start).
+
 ## Running checks
 
 From `backend/`:
