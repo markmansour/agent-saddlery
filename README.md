@@ -5,11 +5,31 @@ run and extended, with multiple frontends (TUI, Web, desktop, IDE) over a shared
 [AG-UI](https://docs.ag-ui.com/introduction) protocol, [MCP](https://modelcontextprotocol.io)
 extensions, and pluggable LLM providers.
 
-> Status: **Phase 0 in progress — 0.1 echo loop implemented.** Run the streaming chat CLI from
-> `backend/`: `uv run saddlery` — needs `ANTHROPIC_API_KEY` (or keep it in `backend/.env` and run
-> `export $(cat .env) && uv run saddlery`). Design in the
+> Status: **Phase 0 in progress — 0.1 echo loop implemented.** Design in the
 > [Phase 0 spec](docs/specs/2026-06-16-phase0-core-design.md); tasks in
 > [Linear](https://linear.app/mark-mansour/project/agent-saddlery-594c6b585b2b/overview).
+
+## Quick start
+
+Needs `ANTHROPIC_API_KEY` set. Put it in a `.env` file at the repo root (`ANTHROPIC_API_KEY=sk-...`)
+— the backend loads it automatically (via `python-dotenv`, walking up from wherever it's run), so
+this one file covers both the backend-only path and the TUI (which spawns the backend as a
+subprocess). A shell-exported `ANTHROPIC_API_KEY` always takes precedence over the file.
+
+**Backend only** (headless CLI, streaming chat in the terminal):
+```bash
+cd backend
+uv run saddlery
+```
+
+**TUI** (spawns the backend for you — this is the normal way to run the app):
+```bash
+cd frontend/tui
+npm install   # first time only
+npm run dev
+```
+
+See [`DEVELOPMENT.md`](DEVELOPMENT.md) for running tests/lint/type-checks and debugging tips.
 
 ## Architecture (locked decisions)
 
@@ -21,6 +41,17 @@ extensions, and pluggable LLM providers.
 - **Sandboxing** is coupled to multi-user (per-user isolation *is* a tenant boundary); the runtime seam
   is designed in at Phase 0.
 - **Plugins** are a packaging layer over primitives (skills / hooks / MCP / agents / commands), Phase 4.
+
+## Tool calling
+
+`Agent.run()` loops a streamed turn against the `LLMProvider`; when the model requests a tool,
+the agent looks it up in a `ToolRegistry`, executes it, and appends the result to the event log
+before looping back for another turn (up to `max_tool_iterations`). Tools mirror MCP's shape
+(name/description/input_schema + async `call()`) so a Phase 1 MCP client is a drop-in
+implementation of the same seam. Tool execution never raises: failures — unknown tool name, bad
+arguments, file errors — become `ToolResult(is_error=True)`, not exceptions. See
+[`docs/diagrams/tool-round-trip-sequence.md`](docs/diagrams/tool-round-trip-sequence.md) for the
+full sequence and [`docs/tools/README.md`](docs/tools/README.md) for the tool catalog.
 
 ## Roadmap
 

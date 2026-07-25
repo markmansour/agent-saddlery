@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 
 import anthropic
 
-from saddlery.llm.base import LLMProvider, ProviderDelta, TextDelta
+from saddlery.llm.base import LLMProvider, ProviderDelta, TextDelta, ToolCallDelta
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -18,10 +18,26 @@ if TYPE_CHECKING:
     from saddlery.messages import Message
 
 
+def _content_for_wire(content: str | list) -> str | list[dict]:
+    """Serialize message content for the Anthropic wire format.
+
+    Anthropic's API accepts both plain strings and lists of content blocks.
+    """
+    if isinstance(content, str):
+        return content
+    return [block.model_dump(mode="json") for block in content]
+
+
 def split_system(messages: list[Message]) -> tuple[str | None, list[dict]]:
     """Separate system messages (Anthropic's `system` param) from the conversation."""
-    system_parts = [m.content for m in messages if m.role == "system"]
-    convo = [{"role": m.role, "content": m.content} for m in messages if m.role != "system"]
+    system_parts = [
+        m.content for m in messages if m.role == "system" and isinstance(m.content, str)
+    ]
+    convo = [
+        {"role": m.role, "content": _content_for_wire(m.content)}
+        for m in messages
+        if m.role != "system"
+    ]
     system = "\n\n".join(system_parts) if system_parts else None
     return system, convo
 
@@ -36,11 +52,33 @@ class AnthropicProvider(LLMProvider):
         self._client = client or anthropic.AsyncAnthropic()
         self._max_tokens = max_tokens
 
-    async def stream(self, messages: list[Message], *, model: str) -> AsyncIterator[ProviderDelta]:
+    async def stream(
+        self,
+        messages: list[Message],
+        *,
+        model: str,
+        tools: list[dict] | None = None,
+    ) -> AsyncIterator[ProviderDelta]:
         system, convo = split_system(messages)
         kwargs: dict = {"model": model, "max_tokens": self._max_tokens, "messages": convo}
         if system is not None:
             kwargs["system"] = system
+        if tools:
+            kwargs["tools"] = tools
+
         async with self._client.messages.stream(**kwargs) as stream:
-            async for text in stream.text_stream:
-                yield TextDelta(text=text)
+            async for chunk in stream:
+                # Handle text deltas (existing behavior)
+                if chunk.type == "content_block_delta" and chunk.delta.type == "text_delta":
+                    yield TextDelta(text=chunk.delta.text)
+                # Handle tool_use blocks (new behavior)
+                elif (
+                    chunk.type == "content_block_stop"
+                    and hasattr(chunk, "content_block")
+                    and chunk.content_block.type == "tool_use"
+                ):
+                    yield ToolCallDelta(
+                        id=chunk.content_block.id,
+                        name=chunk.content_block.name,
+                        input=chunk.content_block.input,
+                    )

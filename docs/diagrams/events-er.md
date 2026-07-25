@@ -25,6 +25,19 @@ erDiagram
     Literal_assistant_message type
     str content
   }
+  ToolCall {
+    Literal_tool_call type
+    str tool_call_id
+    str tool_name
+    dict arguments
+  }
+  ToolResult {
+    Literal_tool_result type
+    str tool_call_id
+    str content
+    bool is_error
+    Literal_untrusted source
+  }
   RunFinished {
     Literal_run_finished type
   }
@@ -34,12 +47,14 @@ erDiagram
   }
   Message {
     Role role
-    str content
+    str_list_ContentBlock content
   }
   BaseEvent ||--|| UserMessage : "is a"
   BaseEvent ||--|| RunStarted : "is a"
   BaseEvent ||--|| AssistantMessageDelta : "is a"
   BaseEvent ||--|| AssistantMessage : "is a"
+  BaseEvent ||--|| ToolCall : "is a"
+  BaseEvent ||--|| ToolResult : "is a"
   BaseEvent ||--|| RunFinished : "is a"
   BaseEvent ||--|| ErrorEvent : "is a"
 ```

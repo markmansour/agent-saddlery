@@ -9,17 +9,32 @@ classDiagram
   ErrorEvent --|> BaseEvent
   RunFinished --|> BaseEvent
   RunStarted --|> BaseEvent
+  SessionStarted --|> BaseEvent
+  ToolCall --|> BaseEvent
+  ToolResult --|> BaseEvent
   UserMessage --|> BaseEvent
   AnthropicProvider --|> LLMProvider
   FakeProvider --|> LLMProvider
+  MockLMProvider --|> LLMProvider
   InMemorySessionStore --|> SessionStore
+  FileReadTool --|> Tool
+  ErrorEvent --|> BaseAgUiEvent
+  RunFinishEvent --|> BaseAgUiEvent
+  RunStartEvent --|> BaseAgUiEvent
+  StateDeltaEvent --|> BaseAgUiEvent
+  TextMessageContentEvent --|> BaseAgUiEvent
+  AgUiSink --|> EventSink
   CliSink --|> EventSink
+  LoggingSink --|> EventSink
   RecordingSink --|> EventSink
   Agent --> LLMProvider : provider
+  Agent --> ToolRegistry : tools
   class Agent {
+    max_tool_iterations : int
     model : str
     provider
     system_prompt : str
+    tools
     run(session: Session, sink: EventSink) None
   }
   class AnthropicProvider {
@@ -31,8 +46,18 @@ classDiagram
   class LLMProvider {
     stream(messages: list[Message]) AsyncIterator[ProviderDelta]
   }
+  class MockLMProvider {
+    call_count : int
+    response : str
+    stream(messages: list[Message]) AsyncIterator[ProviderDelta]
+  }
   class TextDelta {
     text : str
+  }
+  class ToolCallDelta {
+    id : str
+    input : dict
+    name : str
   }
   class InMemorySessionStore {
     get_or_create(session_id: str, principal: str) Session
@@ -47,15 +72,57 @@ classDiagram
   class SessionStore {
     get_or_create(session_id: str, principal: str) Session
   }
+  class AgUiEventSink {
+    emit(event: AgUiEvent) None
+  }
+  class AgUiRecordingSink {
+    events : list[AgUiEvent]
+    emit(event: AgUiEvent) None
+  }
+  class AgUiSink {
+    emit(event: Event) None
+  }
+  class BaseAgUiEvent {
+    model_config : ConfigDict
+    type : str
+  }
   class CliSink {
     emit(event: Event) None
   }
+  class ErrorEvent {
+    message : str
+    type : Literal['error']
+  }
+  class ErrorEvent {
+    message : str
+    type : Literal['ERROR']
+  }
   class EventSink {
+    emit(event: Event) None
+  }
+  class LoggingAgUiSink {
+    emit(event: AgUiEvent) None
+  }
+  class LoggingSink {
     emit(event: Event) None
   }
   class RecordingSink {
     events : list[Event]
     emit(event: Event) None
+  }
+  class RunFinishEvent {
+    type : Literal['RUN_FINISH']
+  }
+  class RunStartEvent {
+    type : Literal['RUN_START']
+  }
+  class StateDeltaEvent {
+    state : dict[str, Any]
+    type : Literal['STATE_DELTA']
+  }
+  class TextMessageContentEvent {
+    content : str
+    type : Literal['TEXT_MESSAGE_CONTENT']
   }
   class AssistantMessage {
     content : str
@@ -72,22 +139,75 @@ classDiagram
     session_id : str
     timestamp : Optional[datetime]
   }
-  class ErrorEvent {
-    message : str
-    type : Literal['error']
-  }
   class RunFinished {
     type : Literal['run_finished']
   }
   class RunStarted {
     type : Literal['run_started']
   }
+  class SessionStarted {
+    type : Literal['session_started']
+  }
+  class ToolCall {
+    arguments : dict
+    tool_call_id : str
+    tool_name : str
+    type : Literal['tool_call']
+  }
+  class ToolResult {
+    content : str
+    is_error : bool
+    source : Literal['untrusted']
+    tool_call_id : str
+    type : Literal['tool_result']
+  }
   class UserMessage {
     content : str
     type : Literal['user_message']
   }
   class Message {
-    content : str
+    content : str | list[ContentBlock]
     role : Literal
+  }
+  class TextBlock {
+    text : str
+    type : Literal['text']
+  }
+  class ToolResultBlock {
+    content : str
+    is_error : bool
+    tool_use_id : str
+    type : Literal['tool_result']
+  }
+  class ToolUseBlock {
+    id : str
+    input : dict
+    name : str
+    type : Literal['tool_use']
+  }
+  class DualWriter {
+    flush() None
+    write(msg: str) None
+  }
+  class FileReadTool {
+    description : str
+    input_schema : dict
+    name : str
+    root : Path
+    call(arguments: dict) ToolExecutionResult
+  }
+  class Tool {
+    description : str
+    input_schema : dict
+    name : str
+    call(arguments: dict) ToolExecutionResult
+  }
+  class ToolExecutionResult {
+    content : str
+    is_error : bool
+  }
+  class ToolRegistry {
+    get(name: str) Tool | None
+    specs() list[dict]
   }
 ```

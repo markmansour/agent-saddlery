@@ -22,6 +22,8 @@ from saddlery.events import (
     ErrorEvent,
     RunFinished,
     RunStarted,
+    ToolCall,
+    ToolResult,
     UserMessage,
 )
 from saddlery.messages import Message
@@ -50,6 +52,8 @@ ER_MODELS: list[type[BaseModel]] = [
     RunStarted,
     AssistantMessageDelta,
     AssistantMessage,
+    ToolCall,
+    ToolResult,
     RunFinished,
     ErrorEvent,
     Message,

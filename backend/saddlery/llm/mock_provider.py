@@ -19,30 +19,36 @@ class MockLMProvider(LLMProvider):
         self.response = response
         self.call_count = 0
 
-    async def stream(self, messages: list[Message], *, model: str) -> AsyncIterator[ProviderDelta]:
+    async def stream(
+        self,
+        messages: list[Message],
+        *,
+        model: str,
+        tools: list[dict] | None = None,
+    ) -> AsyncIterator[ProviderDelta]:
         """Stream a mock response (Protocol method name is 'stream', not 'stream_completion')."""
         self.call_count += 1
 
         # Extract the user's message for a more contextual response
-        last_user_msg = None
+        last_user_msg_str = None
         for msg in reversed(messages):
-            if msg.role == "user":
-                last_user_msg = msg.content
+            if msg.role == "user" and isinstance(msg.content, str):
+                last_user_msg_str = msg.content
                 break
 
         # Generate context-aware responses
-        if last_user_msg:
-            if "2+2" in last_user_msg or "plus" in last_user_msg:
+        if last_user_msg_str:
+            if "2+2" in last_user_msg_str or "plus" in last_user_msg_str:
                 response = "2 + 2 = 4"
-            elif "hello" in last_user_msg.lower():
+            elif "hello" in last_user_msg_str.lower():
                 response = "Hello! I'm a mock assistant. How can I help you?"
-            elif "time" in last_user_msg.lower():
+            elif "time" in last_user_msg_str.lower():
                 response = (
                     "I don't have access to real-time information, but I can help with questions!"
                 )
             else:
                 response = (
-                    f"You said: '{last_user_msg}'\n\n"
+                    f"You said: '{last_user_msg_str}'\n\n"
                     "I'm a mock assistant in test mode. In production, I would call Claude!"
                 )
         else:

@@ -16,10 +16,22 @@ class TextDelta(BaseModel):
     text: str
 
 
-# Union grows later (ToolCallDelta, Stop/Usage). Kept as one type for 0.1.
-ProviderDelta = TextDelta
+class ToolCallDelta(BaseModel):
+    id: str  # Anthropic's tool_use.id — correlates call ↔ result
+    name: str  # tool name
+    input: dict  # parsed tool input/arguments (not raw JSON string)
+
+
+# Union grows later (Stop/Usage). ToolCallDelta added in MM-8 step 5.
+ProviderDelta = TextDelta | ToolCallDelta
 
 
 @runtime_checkable
 class LLMProvider(Protocol):
-    def stream(self, messages: list[Message], *, model: str) -> AsyncIterator[ProviderDelta]: ...
+    def stream(
+        self,
+        messages: list[Message],
+        *,
+        model: str,
+        tools: list[dict] | None = None,
+    ) -> AsyncIterator[ProviderDelta]: ...

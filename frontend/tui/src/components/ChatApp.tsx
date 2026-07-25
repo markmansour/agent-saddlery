@@ -7,8 +7,10 @@ import { CoreSubprocess } from "../core/subprocess.js";
 
 interface Message {
   id: string;
-  role: "user" | "assistant";
+  role: "user" | "assistant" | "tool";
   content: string;
+  toolName?: string;
+  isError?: boolean;
 }
 
 const ChatApp = () => {
@@ -47,6 +49,26 @@ const ChatApp = () => {
               )
             );
           }
+        });
+
+        core.on("tool_call", (call: { id: string; name: string; arguments: Record<string, unknown> }) => {
+          const toolMsg: Message = {
+            id: `tool-${call.id}`,
+            role: "tool",
+            content: `→ ${call.name}(${JSON.stringify(call.arguments)})`,
+            toolName: call.name,
+          };
+          setMessages((prev) => [...prev, toolMsg]);
+        });
+
+        core.on("tool_result", (result: { id: string; content: string; isError: boolean }) => {
+          const resultMsg: Message = {
+            id: `tool-result-${result.id}`,
+            role: "tool",
+            content: result.isError ? `✗ ${result.content}` : `← ${result.content.slice(0, 200)}`,
+            isError: result.isError,
+          };
+          setMessages((prev) => [...prev, resultMsg]);
         });
 
         core.on("run_finish", () => {

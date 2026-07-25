@@ -13,6 +13,8 @@ from saddlery.events import (
     Event,
     RunFinished,
     RunStarted,
+    ToolCall,
+    ToolResult,
 )
 from saddlery.transport.base import EventSink
 
@@ -46,9 +48,27 @@ class LoggingSink(EventSink):
         self._log = structlog.get_logger()
 
     async def emit(self, event: Event) -> None:
-        # Log events: info for lifecycle, debug for content
+        # Log events: info for lifecycle, tool calls (important), debug for content
         if event.type in ("run_started", "run_finished"):
             self._log.info("event", event_type=event.type, event_data=event.model_dump())
+        elif isinstance(event, ToolCall):
+            self._log.info(
+                "event",
+                event_type="tool_call",
+                tool_call_id=event.tool_call_id,
+                tool_name=event.tool_name,
+                arguments=event.arguments,
+            )
+        elif isinstance(event, ToolResult):
+            self._log.info(
+                "event",
+                event_type="tool_result",
+                tool_call_id=event.tool_call_id,
+                is_error=event.is_error,
+                content_length=len(event.content),
+                content_preview=event.content[:100] if not event.is_error else event.content,
+                source=event.source,
+            )
         else:
             self._log.debug("event", event_type=event.type, event_data=event.model_dump())
         await self._sink.emit(event)

@@ -29,6 +29,9 @@ out/
 # Logs
 *.log
 
+# Editor / IDE
+*.code-workspace
+
 # OS / editor
 .DS_Store
 *.swp

@@ -4,6 +4,8 @@ from saddlery.llm.anthropic_provider import AnthropicProvider
 from saddlery.llm.base import LLMProvider
 from saddlery.llm.fake import FakeProvider
 from saddlery.session import InMemorySessionStore, SessionStore
+from saddlery.tools.base import Tool
+from saddlery.tools.read_file import FileReadTool
 from saddlery.transport.base import EventSink
 from saddlery.transport.cli import CliSink
 from saddlery.transport.recording import RecordingSink
@@ -17,3 +19,4 @@ def test_first_party_impls_nominally_subclass_their_protocol() -> None:
     assert SessionStore in InMemorySessionStore.__mro__
     assert EventSink in CliSink.__mro__
     assert EventSink in RecordingSink.__mro__
+    assert Tool in FileReadTool.__mro__
