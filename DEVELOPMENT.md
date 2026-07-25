@@ -26,12 +26,13 @@ Tool-calling tests live in `backend/tests/`:
 - `test_anthropic_provider.py` — a live smoke test against the real API, skipped unless
   `ANTHROPIC_API_KEY` is set.
 
-To exercise the round-trip manually against the real API:
+To exercise the round-trip manually against the real API (needs `ANTHROPIC_API_KEY` — see the
+root [`README.md`](README.md#quick-start) for the `.env` setup):
 
 ```bash
 echo "Some file content" > /tmp/demo.txt
 cd backend
-ANTHROPIC_API_KEY=sk-... uv run python -m saddlery.cli.main --json-input <<'EOF'
+uv run python -m saddlery.cli.main --json-input <<'EOF'
 Read /tmp/demo.txt and tell me what it says in one sentence.
 EOF
 ```
