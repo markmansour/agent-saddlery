@@ -48,6 +48,27 @@ See [`docs/tools/README.md`](docs/tools/README.md#debugging-tool-calls) for wher
 logging lands (`tui.log`, `core.log`) and what's not yet instrumented (execution timing inside
 the agent loop).
 
+## Inspecting API traffic with Charles Proxy
+
+`AnthropicProvider` constructs a bare `anthropic.AsyncAnthropic()` (no explicit proxy/client
+config), so it inherits standard proxy env vars via `httpx`. To route requests through
+[Charles Proxy](https://www.charlesproxy.com/) (default port 8888):
+
+1. In Charles: **Proxy → SSL Proxying Settings** → enable, and add `api.anthropic.com:443` to the
+   include list (Charles won't decrypt HTTPS for a host unless it's listed).
+2. Export Charles's root cert as PEM: **Help → SSL Proxying → Save Charles Root Certificate**
+   (or export "Charles Proxy CA" from Keychain Access as `.pem`).
+3. Set env vars before running, then start the backend or TUI as usual:
+   ```bash
+   export HTTPS_PROXY=http://localhost:8888
+   export SSL_CERT_FILE=/path/to/charles-cert.pem
+   cd backend && uv run saddlery
+   ```
+   `SSL_CERT_FILE` is required — without it, `httpx` fails TLS verification because Charles
+   presents its own cert in place of Anthropic's real one. Both env vars are inherited by the TUI's
+   spawned backend subprocess too, so the same export works whether you run the backend directly
+   or via `npm run dev`.
+
 ## Diagrams
 
 Regenerate the Mermaid diagrams under `docs/diagrams/` after changing `saddlery.events` or
