@@ -11,12 +11,15 @@ extensions, and pluggable LLM providers.
 
 ## Quick start
 
-Needs `ANTHROPIC_API_KEY` set (or in `backend/.env`).
+Needs `ANTHROPIC_API_KEY` set. Put it in a `.env` file at the repo root (`ANTHROPIC_API_KEY=sk-...`)
+— the backend loads it automatically (via `python-dotenv`, walking up from wherever it's run), so
+this one file covers both the backend-only path and the TUI (which spawns the backend as a
+subprocess). A shell-exported `ANTHROPIC_API_KEY` always takes precedence over the file.
 
 **Backend only** (headless CLI, streaming chat in the terminal):
 ```bash
 cd backend
-export $(cat .env) && uv run saddlery   # or: ANTHROPIC_API_KEY=sk-... uv run saddlery
+uv run saddlery
 ```
 
 **TUI** (spawns the backend for you — this is the normal way to run the app):

@@ -8,6 +8,7 @@ import sys
 import uuid
 
 import structlog
+from dotenv import load_dotenv
 
 from saddlery.agent import Agent
 from saddlery.cli.input import read_user_messages_interactive, read_user_messages_json
@@ -22,6 +23,11 @@ from saddlery.transport.cli import CliSink, LoggingSink
 
 
 def build_agent() -> Agent:
+    # Load the repo-root .env (shared with the TUI) without overriding vars already set
+    # in the environment (e.g. by the TUI, which loads it too and passes it to this
+    # subprocess — an explicit shell export should still win over the file).
+    load_dotenv(override=False)
+
     # Use mock provider if no API key or if --test-mode is set
     test_mode_flag = "--test-mode" in sys.argv
     has_api_key = bool(os.environ.get("ANTHROPIC_API_KEY"))
