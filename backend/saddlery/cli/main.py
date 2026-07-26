@@ -11,7 +11,7 @@ import structlog
 from dotenv import load_dotenv
 
 from saddlery.agent import Agent
-from saddlery.cli.input import read_user_messages_interactive, read_user_messages_json
+from saddlery.cli.input import read_input_lines, read_user_messages_interactive
 from saddlery.events import UserMessage
 from saddlery.llm.anthropic_provider import AnthropicProvider
 from saddlery.llm.mock_provider import MockLMProvider
@@ -73,18 +73,31 @@ async def _amain() -> int:
 
     # Determine input mode: JSON (for TUI) or interactive (for CLI)
     use_json = _use_json_input()
-    if use_json:
-        input_reader = read_user_messages_json()
-    else:
-        print("Agent Saddlery — 0.1 echo loop. Type a message; Ctrl-D to exit.")
-        input_reader = read_user_messages_interactive()
 
+    pending_run: asyncio.Task | None = None
     try:
-        async for text in input_reader:
-            session.append(
-                UserMessage(session_id=session.session_id, principal=principal, content=text)
-            )
-            await agent.run(session, sink)
+        if use_json:
+            async for event_type, payload in read_input_lines():
+                if event_type == "user_message":
+                    session.append(
+                        UserMessage(
+                            session_id=session.session_id,
+                            principal=principal,
+                            content=payload["content"],
+                        )
+                    )
+                    pending_run = asyncio.ensure_future(agent.run(session, sink))
+                elif event_type == "permission_decision":
+                    await agent.resolve_permission(payload["tool_call_id"], payload["decision"])
+            if pending_run is not None:
+                await pending_run
+        else:
+            print("Agent Saddlery — 0.1 echo loop. Type a message; Ctrl-D to exit.")
+            async for text in read_user_messages_interactive():
+                session.append(
+                    UserMessage(session_id=session.session_id, principal=principal, content=text)
+                )
+                await agent.run(session, sink)
     finally:
         log.info("session_finished", session_id=session.session_id, event_count=len(session.events))
 
