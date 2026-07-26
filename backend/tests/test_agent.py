@@ -1,7 +1,10 @@
+from typing import ClassVar
+
 from saddlery.agent import Agent
 from saddlery.events import UserMessage
 from saddlery.llm.base import ToolCallDelta
 from saddlery.llm.fake import FakeProvider
+from saddlery.permissions.gate import PermissionGate
 from saddlery.session import Session
 from saddlery.tools.base import ToolExecutionResult
 from saddlery.tools.registry import ToolRegistry
@@ -177,3 +180,76 @@ async def test_run_max_tool_iterations_exceeded():
     # Verify loop ran max_tool_iterations times
     tool_call_count = sum(1 for e in sink.events if e.type == "tool_call")
     assert tool_call_count == 3
+
+
+async def test_run_denied_tool_call_short_circuits_without_calling_tool():
+    """A gate that denies a tool never calls tool.call(); ToolResult reflects the denial."""
+    session = _session_with_user("call a tool")
+    sink = RecordingSink()
+
+    class _RaisingTool:
+        """A tool that would fail the test if call() were ever invoked."""
+
+        name: ClassVar[str] = "get_info"
+        description: ClassVar[str] = "test"
+        input_schema: ClassVar[dict] = {"type": "object", "properties": {}}
+
+        async def call(self, arguments: dict) -> ToolExecutionResult:
+            raise AssertionError("call() should not have been invoked for a denied tool")
+
+    tools = ToolRegistry([_RaisingTool()])
+    gate = PermissionGate(allow=set(), deny={"get_info"})
+
+    fake = FakeProvider(
+        chunks=["done"],
+        tool_calls=[ToolCallDelta(id="call-1", name="get_info", input={"query": "x"})],
+    )
+    agent = Agent(provider=fake, tools=tools, permission_gate=gate)
+
+    await agent.run(session, sink)
+
+    tool_result_event = next(e for e in sink.events if e.type == "tool_result")
+    assert tool_result_event.tool_call_id == "call-1"
+    assert tool_result_event.is_error is True
+    assert "denied" in tool_result_event.content.lower()
+
+
+async def test_run_allowed_tool_call_executes_normally():
+    """A gate that allows a tool proceeds to call tool.call() as before."""
+    session = _session_with_user("call a tool")
+    sink = RecordingSink()
+    stub_tool = _StubTool(name="get_info", response="file contents")
+    tools = ToolRegistry([stub_tool])
+    gate = PermissionGate(allow={"get_info"}, deny=set())
+
+    fake = FakeProvider(
+        chunks=["Response text"],
+        tool_calls=[ToolCallDelta(id="call-1", name="get_info", input={"query": "test"})],
+    )
+    agent = Agent(provider=fake, tools=tools, permission_gate=gate)
+
+    await agent.run(session, sink)
+
+    tool_result_event = next(e for e in sink.events if e.type == "tool_result")
+    assert tool_result_event.content == "file contents"
+    assert tool_result_event.is_error is False
+
+
+async def test_run_without_permission_gate_behaves_as_before():
+    """Agent without permission_gate (the default) is unaffected — existing behavior."""
+    session = _session_with_user("call a tool")
+    sink = RecordingSink()
+    stub_tool = _StubTool(name="get_info", response="file contents")
+    tools = ToolRegistry([stub_tool])
+
+    fake = FakeProvider(
+        chunks=["Response text"],
+        tool_calls=[ToolCallDelta(id="call-1", name="get_info", input={"query": "test"})],
+    )
+    agent = Agent(provider=fake, tools=tools)  # no permission_gate
+
+    await agent.run(session, sink)
+
+    tool_result_event = next(e for e in sink.events if e.type == "tool_result")
+    assert tool_result_event.content == "file contents"
+    assert tool_result_event.is_error is False

@@ -21,6 +21,7 @@ from saddlery.tools.registry import ToolRegistry
 
 if TYPE_CHECKING:
     from saddlery.llm.base import LLMProvider
+    from saddlery.permissions.gate import PermissionGate
     from saddlery.session import Session
     from saddlery.transport.base import EventSink
 
@@ -34,6 +35,7 @@ class Agent:
     model: str = DEFAULT_MODEL
     tools: ToolRegistry = field(default_factory=lambda: ToolRegistry([]))
     max_tool_iterations: int = 8
+    permission_gate: PermissionGate | None = None
 
     async def run(self, session: Session, sink: EventSink) -> None:
         sid = session.session_id
@@ -97,8 +99,18 @@ class Agent:
                     if tool is None:
                         result_content, is_error = f"Error: unknown tool '{call.name}'", True
                     else:
-                        outcome = await tool.call(call.input)
-                        result_content, is_error = outcome.content, outcome.is_error
+                        decision = "allow"
+                        if self.permission_gate is not None:
+                            decision = await self.permission_gate.check(
+                                call.name, call.input, principal
+                            )
+                        if decision == "deny":
+                            result_content, is_error = "Permission denied", True
+                        else:
+                            # "ask" is handled fully in Task 7; for now treat it like "allow"
+                            # so this task's scope stays limited to allow/deny.
+                            outcome = await tool.call(call.input)
+                            result_content, is_error = outcome.content, outcome.is_error
                     await emit(
                         ToolResult(
                             session_id=sid,
