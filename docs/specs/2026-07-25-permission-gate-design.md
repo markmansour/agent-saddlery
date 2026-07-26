@@ -97,6 +97,16 @@ When the gate resolves to `ask`, `Agent.run()`:
    `ToolResult(is_error=True, content="Permission denied")` if denied — no change to the existing
    `ToolResult` emission point.
 
+`PermissionDecision` carries no notion of *who* or *what* answered — it's just
+`{tool_call_id, decision}` on the same stdin channel user messages already arrive on. The gate
+doesn't distinguish a human clicking "allow" in the TUI from a script, another process, or a
+future policy-automation layer writing the same JSON line. This is deliberate for this slice: the
+mechanism is open by construction, so no code changes are needed later to support a non-human
+answerer — only a client that speaks the existing protocol. A dedicated automated-answerer
+feature (e.g. a policy engine or trusted-reviewer agent that consumes `PermissionRequest` events
+and emits `PermissionDecision`s on its own) is tracked as separate future work — see
+[MM-108](https://linear.app/mark-mansour/issue/MM-108).
+
 This reuses the existing JSON-lines stdin/stdout channel between backend and TUI — no new
 transport or subprocess plumbing beyond parsing two new event types on each side.
 
