@@ -19,6 +19,7 @@ out/
 # Environment & secrets
 .env
 .env.*
+.env-*
 !.env.example
 
 # Runtime data (event logs, sessions)

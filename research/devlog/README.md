@@ -38,6 +38,7 @@ stays the canonical statement of *why* the rule exists.
 - [2026-06-24 — Python standards & enforcement](2026-06-24-python-standards.md)
 - [2026-07-02 — Diagrams + nominal conformance (MM-29, MM-30)](2026-07-02-diagrams-nominal-conformance.md)
 - [2026-07-03 — Executing the repo-layout rename (`core/` → `backend/`)](2026-07-03-repo-layout-rename.md)
+- [2026-07-25 — Landing MM-9: the permission gate](2026-07-25-mm9-permission-gate.md)
 
 ## Phase retrospectives
 - [2026-07-04 — Phase 0 Retrospective (Walking skeleton complete)](2026-07-04-phase-0-retrospective.md)

@@ -105,10 +105,24 @@ mitmproxy   # or `mitmweb` for a browser UI, `mitmdump` for headless/CLI — all
 
 The cert is generated on first run at `~/.mitmproxy/mitmproxy-ca-cert.pem` — no export step needed.
 
+Keep the two exports in a local, gitignored `.env-proxy` file at the repo root (see `.gitignore`)
+rather than exporting them in your regular shell — they should only apply to the run you're
+actively debugging:
+
 ```bash
+# .env-proxy (repo root, not committed)
 export HTTPS_PROXY=http://localhost:8080
 export SSL_CERT_FILE=~/.mitmproxy/mitmproxy-ca-cert.pem
-cd backend && uv run saddlery
+```
+
+Source it before starting whichever half of the app you're debugging:
+
+```bash
+cd backend && source ../.env-proxy && uv run saddlery
+```
+
+```bash
+cd frontend/tui && source ../../.env-proxy && npm run dev
 ```
 
 ### Charles Proxy (paid, GUI-first alternative)
@@ -126,8 +140,9 @@ cd backend && uv run saddlery
 
 Either way, `SSL_CERT_FILE` is required — without it, `httpx` fails TLS verification because the
 proxy presents its own cert in place of Anthropic's real one. Both env vars are inherited by the
-TUI's spawned backend subprocess too, so the same export works whether you run the backend
-directly or via `npm run dev`.
+TUI's spawned backend subprocess too (`subprocess.ts` spreads `...process.env` into the spawn
+call), so sourcing `.env-proxy` before `npm run dev` covers both the TUI process and the backend
+it launches — no separate export needed for each.
 
 ## Diagrams
 
