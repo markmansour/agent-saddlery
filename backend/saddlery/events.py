@@ -70,19 +70,6 @@ class ToolResult(BaseEvent):
     source: Literal["untrusted"] = "untrusted"
 
 
-class PermissionRequest(BaseEvent):
-    type: Literal["permission_request"] = "permission_request"
-    tool_call_id: str
-    tool_name: str
-    arguments: dict
-
-
-class PermissionDecision(BaseEvent):
-    type: Literal["permission_decision"] = "permission_decision"
-    tool_call_id: str
-    decision: Literal["allow", "deny"]
-
-
 class ErrorEvent(BaseEvent):
     type: Literal["error"] = "error"
     message: str
@@ -96,8 +83,6 @@ Event = Annotated[
     | AssistantMessage
     | ToolCall
     | ToolResult
-    | PermissionRequest
-    | PermissionDecision
     | RunFinished
     | ErrorEvent,
     Field(discriminator="type"),

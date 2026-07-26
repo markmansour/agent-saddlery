@@ -1,11 +1,8 @@
-import pytest
-from pydantic import TypeAdapter, ValidationError
+from pydantic import TypeAdapter
 
 from saddlery.events import (
     AssistantMessage,
     Event,
-    PermissionDecision,
-    PermissionRequest,
     RunStarted,
     ToolCall,
     ToolResult,
@@ -101,39 +98,3 @@ def test_tool_result_json_roundtrip():
     assert isinstance(parsed, ToolResult)
     assert parsed.source == "untrusted"
     assert parsed.is_error is False
-
-
-def test_permission_request_round_trips_through_json():
-    event = PermissionRequest(
-        session_id="s1",
-        principal="local",
-        tool_call_id="call-1",
-        tool_name="write_file",
-        arguments={"path": "out.txt", "content": "hi"},
-    )
-    dumped = event.model_dump(mode="json")
-    assert dumped["type"] == "permission_request"
-    assert dumped["tool_call_id"] == "call-1"
-    assert dumped["tool_name"] == "write_file"
-    assert dumped["arguments"] == {"path": "out.txt", "content": "hi"}
-
-
-def test_permission_decision_round_trips_through_json():
-    event = PermissionDecision(
-        session_id="s1",
-        principal="local",
-        tool_call_id="call-1",
-        decision="allow",
-    )
-    dumped = event.model_dump(mode="json")
-    assert dumped["type"] == "permission_decision"
-    assert dumped["tool_call_id"] == "call-1"
-    assert dumped["decision"] == "allow"
-
-
-def test_permission_events_are_frozen():
-    event = PermissionRequest(
-        session_id="s1", principal="local", tool_call_id="c1", tool_name="x", arguments={}
-    )
-    with pytest.raises(ValidationError):
-        event.tool_call_id = "changed"
