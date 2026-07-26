@@ -91,8 +91,7 @@ When the gate resolves to `ask`, `Agent.run()`:
    in-memory dict on the `PermissionGate` instance, keyed by `(principal, tool_name)`. This works
    because one `PermissionGate` is constructed per agent process today, and one process handles
    exactly one session — so "remembered for the process" and "remembered for the session" are the
-   same thing right now. If a future slice has one process serve multiple sessions, this memory
-   will need to move onto `Session` itself; noted here so it isn't a silent assumption.
+   same thing right now. See §7 for what breaks when this assumption stops holding.
 5. `Agent.run()` proceeds to `tool.call()` if allowed, or synthesizes
    `ToolResult(is_error=True, content="Permission denied")` if denied — no change to the existing
    `ToolResult` emission point.
@@ -139,6 +138,39 @@ per-session-per-tool memory keyed by `(principal, tool_name)`) even though today
 ever one `principal` (`"local"`) per process. This costs nothing now and means the plumbing is
 already shaped for Phase 3 multi-user support — a different `principal` value flows through the
 same parameters later, no redesign needed.
+
+## 7. Known limitation: this is not stateless-server-safe
+
+Surfaced 2026-07-26, while reviewing the plan: both stateful mechanisms in this design —
+`PermissionGate`'s remembered-decision dict (§3, step 4) and `Agent`'s suspended
+`asyncio.Future` for a pending ask (§3, step 2) — live in one Python process's memory, tied to
+one running event loop. This is correct and sufficient for **today's actual deployment shape**:
+the TUI spawns the backend as a long-lived subprocess for the duration of one session (see
+`frontend/tui/src/core/subprocess.ts`), so "in-memory for the process" and "in-memory for the
+session" are the same guarantee. It will not survive Phase 2's stateless multi-frontend server,
+where a request can be served by a different process — or no live process at all — between the
+`PermissionRequest` being emitted and the `PermissionDecision` arriving. Two distinct problems,
+with very different fixes:
+
+- **Remembered decisions** — the easy case. [MM-12](https://linear.app/mark-mansour/issue/MM-12)
+  ("execution seam + persistence") already commits to persisting the event log to SQLite and
+  replaying a session deterministically from it. Once that exists, remembered decisions should
+  move from `PermissionGate`'s in-memory dict onto the event log itself (each remembered decision
+  is just another fact recoverable by folding `PermissionDecision` events), rather than
+  maintaining a second, competing source of truth. This falls out of MM-12's existing scope with
+  no new mechanism — it is not free, but it is not a new design problem either.
+- **Suspended asks** — the hard case, and **not** solved by MM-12 alone. A stateless
+  request/response backend cannot pause a live coroutine in memory and resume it from a different
+  process later — there's no `asyncio.Future` to resume; it never existed in that process. Fixing
+  this needs the ask-suspend point to change shape entirely: instead of `Agent.run()` blocking on
+  `await future`, the run would need to durably persist "waiting on tool_call_id X" and actually
+  return/exit at that point, with a later, independent invocation re-entering from the persisted
+  event log (the same fold `Session.to_messages()` already performs) when the matching
+  `PermissionDecision` shows up. This is a real redesign of the suspend/resume mechanism, not a
+  storage swap — explicitly **not** attempted in this slice. Tracked as follow-up work in
+  [MM-109](https://linear.app/mark-mansour/issue/MM-109), to revisit once Phase 2's server
+  architecture (and MM-12's persistence layer) actually exist to design against, rather than
+  speculating on their shape now.
 
 ## Testing
 
