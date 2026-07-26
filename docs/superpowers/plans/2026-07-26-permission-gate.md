@@ -554,6 +554,11 @@ structure exactly (same `tmp_path` fixture usage, same assertion style):
 
 from __future__ import annotations
 
+import os
+import sys
+
+import pytest
+
 from saddlery.tools.write_file import FileWriteTool
 
 
@@ -649,9 +654,37 @@ async def test_invalid_arguments_type(tmp_path):
     assert "dictionary" in result.content.lower()
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32" or os.geteuid() == 0,
+    reason="POSIX permission bits aren't enforced on Windows, and root bypasses them entirely",
+)
+async def test_os_permission_denied_rejected(tmp_path):
+    """Writing into a directory without write permission returns is_error=True, not a crash.
+
+    This is an OS-level filesystem PermissionError (e.g. a read-only directory) — a distinct
+    failure mode from PermissionGate's allow/deny/ask decision (Task 2+), which governs whether
+    the *call* happens at all. The gate can allow a write and the OS can still refuse it.
+    """
+    readonly_dir = tmp_path / "readonly"
+    readonly_dir.mkdir()
+    readonly_dir.chmod(0o555)
+    try:
+        tool = FileWriteTool(root=tmp_path)
+        result = await tool.call({"path": "readonly/out.txt", "content": "x"})
+
+        assert result.is_error
+        assert "permission" in result.content.lower()
+    finally:
+        readonly_dir.chmod(0o755)  # restore so tmp_path cleanup can remove it
+
+
 async def test_never_raises_exception(tmp_path):
     """FileWriteTool.call() never raises, only returns is_error=True."""
     tool = FileWriteTool(root=tmp_path)
+
+    readonly_dir = tmp_path / "readonly2"
+    readonly_dir.mkdir()
+    readonly_dir.chmod(0o555)
 
     test_cases = [
         {},  # missing path and content
@@ -661,14 +694,22 @@ async def test_never_raises_exception(tmp_path):
         {"path": 123, "content": "x"},  # wrong type
         "not a dict",  # wrong type for arguments
     ]
+    if sys.platform != "win32" and os.geteuid() != 0:
+        # OS permission denied
+        test_cases.append({"path": "readonly2/out.txt", "content": "x"})
 
-    for args in test_cases:
-        try:
-            result = await tool.call(args)  # type: ignore
-            assert isinstance(result.content, str)
-            assert isinstance(result.is_error, bool)
-        except Exception as e:
-            raise AssertionError(f"call() raised {type(e).__name__}: {e} for args {args}") from e
+    try:
+        for args in test_cases:
+            try:
+                result = await tool.call(args)  # type: ignore
+                assert isinstance(result.content, str)
+                assert isinstance(result.is_error, bool)
+            except Exception as e:
+                raise AssertionError(
+                    f"call() raised {type(e).__name__}: {e} for args {args}"
+                ) from e
+    finally:
+        readonly_dir.chmod(0o755)
 
 
 async def test_tool_attributes(tmp_path):
@@ -799,7 +840,9 @@ class FileWriteTool(Tool):
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `cd backend && uv run pytest tests/test_write_file.py -v`
-Expected: PASS (13 tests)
+Expected: PASS (14 tests — `test_os_permission_denied_rejected` and the read-only-directory case
+added to `test_never_raises_exception` are skipped on Windows or when running as root, per the
+`skipif` guards)
 
 - [ ] **Step 5: Lint, format, type-check**
 
