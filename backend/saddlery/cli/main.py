@@ -74,6 +74,11 @@ async def _amain() -> int:
     # Determine input mode: JSON (for TUI) or interactive (for CLI)
     use_json = _use_json_input()
 
+    # Scheduled as a background task (not awaited inline) so the loop keeps reading
+    # stdin while a run is suspended on a pending permission ask — see resolve_permission().
+    # Assumes one turn in flight at a time: the TUI enforces this by disabling input
+    # until run_finish, but nothing here re-checks it if a second user_message arrived
+    # while pending_run is still running, the prior task would be overwritten unawaited.
     pending_run: asyncio.Task | None = None
     try:
         if use_json:

@@ -34,3 +34,13 @@ def test_missing_keys_default_to_empty_sets(tmp_path):
 
     assert allow == set()
     assert deny == set()
+
+
+def test_malformed_json_returns_empty_sets(tmp_path):
+    config_path = tmp_path / "permissions.json"
+    config_path.write_text("{not valid json")
+
+    allow, deny = load_permission_config(config_path)
+
+    assert allow == set()
+    assert deny == set()

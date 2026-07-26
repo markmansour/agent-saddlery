@@ -110,8 +110,10 @@ guards tool execution with a five-stage decision pipeline:
 
 **Evaluation order:** remembered decisions → hooks → deny list → allow list → ask
 
-1. **Remembered decisions** — if the agent has already decided to allow or deny this tool for this
-   principal in this session, reuse that decision (no re-prompting).
+1. **Remembered decisions** — if this tool was already allowed or denied for this principal
+   earlier in the same process, reuse that decision (no re-prompting). This is scoped to the
+   process's lifetime, not a persisted session — see the design spec's note on stateless-backend
+   limitations.
 2. **Hooks** — run registered hook functions (none by default; a hook can pass, allow, deny, or ask).
 3. **Deny list** — if the tool name matches an entry in `.saddlery/permissions.json`'s `"deny"` array,
    the tool is blocked.
@@ -140,7 +142,8 @@ this session.
 **Events:**
 - `PermissionRequest` — emitted when the ask stage is reached. Fields: `tool_call_id`, `tool_name`,
   `arguments`, `principal`.
-- `PermissionDecision` — emitted after the user (or a hook) resolves the pending request.
+- `PermissionDecision` — emitted after the user resolves a pending ask request (a hook never
+  reaches this event — a non-`pass` hook result short-circuits the pipeline before the ask stage).
   Fields: `tool_call_id`, `decision` ("allow" or "deny").
 
 See [`docs/diagrams/permission-gate-sequence.md`](../diagrams/permission-gate-sequence.md) for the
