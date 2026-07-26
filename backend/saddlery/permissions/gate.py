@@ -1,0 +1,47 @@
+"""The PermissionGate seam — hooks -> deny -> allow -> ask evaluation order.
+
+Mirrors ToolRegistry: constructed once in build_agent(), called from Agent.run()
+between emitting ToolCall and invoking tool.call().
+"""
+
+from __future__ import annotations
+
+from collections.abc import Callable
+from typing import Literal
+
+Decision = Literal["allow", "deny", "ask"]
+HookResult = Literal["allow", "deny", "ask", "pass"]
+Hook = Callable[[str, dict, str], HookResult]
+
+
+class PermissionGate:
+    def __init__(
+        self,
+        *,
+        allow: set[str],
+        deny: set[str],
+        hooks: list[Hook] | None = None,
+    ) -> None:
+        self._allow = allow
+        self._deny = deny
+        self._hooks = hooks or []
+        self._remembered: dict[tuple[str, str], Literal["allow", "deny"]] = {}
+
+    def remember(self, tool_name: str, principal: str, decision: Literal["allow", "deny"]) -> None:
+        self._remembered[(principal, tool_name)] = decision
+
+    async def check(self, tool_name: str, arguments: dict, principal: str) -> Decision:
+        remembered = self._remembered.get((principal, tool_name))
+        if remembered is not None:
+            return remembered
+
+        for hook in self._hooks:
+            result = hook(tool_name, arguments, principal)
+            if result != "pass":
+                return result
+
+        if tool_name in self._deny:
+            return "deny"
+        if tool_name in self._allow:
+            return "allow"
+        return "ask"

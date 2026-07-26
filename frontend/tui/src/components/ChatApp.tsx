@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Box } from "ink";
+import { Box, Text } from "ink";
 import MessageHistory from "./MessageHistory.js";
 import InputBox from "./InputBox.js";
 import StatusLine from "./StatusLine.js";
@@ -18,6 +18,11 @@ const ChatApp = () => {
   const [status, setStatus] = useState("Initializing...");
   const [sessionId, setSessionId] = useState<string>("");
   const [isRunning, setIsRunning] = useState(false);
+  const [pendingPermission, setPendingPermission] = useState<{
+    toolCallId: string;
+    toolName: string;
+    arguments: Record<string, unknown>;
+  } | null>(null);
   const coreRef = useRef<CoreSubprocess | null>(null);
   const pendingMessageIdRef = useRef<string | null>(null);
 
@@ -71,6 +76,13 @@ const ChatApp = () => {
           setMessages((prev) => [...prev, resultMsg]);
         });
 
+        core.on(
+          "permission_request",
+          (request: { toolCallId: string; toolName: string; arguments: Record<string, unknown> }) => {
+            setPendingPermission(request);
+          }
+        );
+
         core.on("run_finish", () => {
           // Clear the pending message ID
           pendingMessageIdRef.current = null;
@@ -103,7 +115,26 @@ const ChatApp = () => {
     };
   }, []);
 
+  const handlePermissionResponse = (allow: boolean) => {
+    if (!pendingPermission || !coreRef.current) return;
+    coreRef.current.sendPermissionDecision(
+      pendingPermission.toolCallId,
+      allow ? "allow" : "deny"
+    );
+    setPendingPermission(null);
+  };
+
   const handleUserMessage = (content: string) => {
+    if (pendingPermission) {
+      const answer = content.trim().toLowerCase();
+      if (answer === "y" || answer === "yes") {
+        handlePermissionResponse(true);
+      } else if (answer === "n" || answer === "no") {
+        handlePermissionResponse(false);
+      }
+      return;
+    }
+
     if (isRunning || !coreRef.current) return;
 
     // Add user message to history
@@ -140,7 +171,15 @@ const ChatApp = () => {
       <Box flexDirection="column" marginBottom={1}>
         <MessageHistory messages={messages} />
       </Box>
-      <InputBox onSubmit={handleUserMessage} disabled={isRunning} />
+      {pendingPermission && (
+        <Box marginBottom={1}>
+          <Text color="yellow" bold>
+            Allow {pendingPermission.toolName}(
+            {JSON.stringify(pendingPermission.arguments)})? [y/n]
+          </Text>
+        </Box>
+      )}
+      <InputBox onSubmit={handleUserMessage} disabled={isRunning && !pendingPermission} />
       <StatusLine sessionId={sessionId} status={status} />
     </Box>
   );

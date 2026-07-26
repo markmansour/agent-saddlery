@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { CoreSubprocess } from "../core/subprocess";
 
 describe("CoreSubprocess", () => {
@@ -29,6 +29,54 @@ describe("CoreSubprocess", () => {
 
   it("should have a getSessionId method", () => {
     expect(typeof core.getSessionId).toBe("function");
+  });
+
+  it("should have a sendPermissionDecision method", () => {
+    expect(typeof core.sendPermissionDecision).toBe("function");
+  });
+
+  it("emits permission_request when a permission_request event arrives", () => {
+    const handler = vi.fn();
+    core.on("permission_request", handler);
+
+    (core as unknown as { handleEvent: (e: unknown) => void }).handleEvent({
+      event_type: "permission_request",
+      event_data: {
+        tool_call_id: "call-1",
+        tool_name: "write_file",
+        arguments: { path: "out.txt" },
+      },
+    });
+
+    expect(handler).toHaveBeenCalledWith({
+      toolCallId: "call-1",
+      toolName: "write_file",
+      arguments: { path: "out.txt" },
+    });
+  });
+
+  it("sendPermissionDecision writes a permission_decision JSON line to stdin", () => {
+    const writeSpy = vi.fn();
+    (core as unknown as { process: { stdin: { write: typeof writeSpy }; kill: () => void } }).process = {
+      stdin: { write: writeSpy },
+      kill: vi.fn(),
+    };
+
+    core.sendPermissionDecision("call-1", "allow");
+
+    expect(writeSpy).toHaveBeenCalledWith(
+      JSON.stringify({
+        type: "permission_decision",
+        tool_call_id: "call-1",
+        decision: "allow",
+      }) + "\n"
+    );
+  });
+
+  it("sendPermissionDecision throws if core process is not running", () => {
+    expect(() => core.sendPermissionDecision("call-1", "deny")).toThrow(
+      "Core process not running"
+    );
   });
 
   // Integration test: requires Python backend

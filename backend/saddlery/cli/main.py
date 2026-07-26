@@ -11,14 +11,17 @@ import structlog
 from dotenv import load_dotenv
 
 from saddlery.agent import Agent
-from saddlery.cli.input import read_user_messages_interactive, read_user_messages_json
+from saddlery.cli.input import read_input_lines, read_user_messages_interactive
 from saddlery.events import UserMessage
 from saddlery.llm.anthropic_provider import AnthropicProvider
 from saddlery.llm.mock_provider import MockLMProvider
 from saddlery.logging import configure_logging
+from saddlery.permissions.config import load_permission_config
+from saddlery.permissions.gate import PermissionGate
 from saddlery.session import Session
 from saddlery.tools.read_file import FileReadTool
 from saddlery.tools.registry import ToolRegistry
+from saddlery.tools.write_file import FileWriteTool
 from saddlery.transport.cli import CliSink, LoggingSink
 
 
@@ -38,7 +41,13 @@ def build_agent() -> Agent:
             reason="--test-mode flag set" if test_mode_flag else "ANTHROPIC_API_KEY not set",
         )
     provider = MockLMProvider() if use_mock else AnthropicProvider()
-    return Agent(provider=provider, tools=ToolRegistry([FileReadTool()]))
+    allow, deny = load_permission_config()
+    gate = PermissionGate(allow=allow, deny=deny)
+    return Agent(
+        provider=provider,
+        tools=ToolRegistry([FileReadTool(), FileWriteTool()]),
+        permission_gate=gate,
+    )
 
 
 def _use_json_input() -> bool:
@@ -64,18 +73,36 @@ async def _amain() -> int:
 
     # Determine input mode: JSON (for TUI) or interactive (for CLI)
     use_json = _use_json_input()
-    if use_json:
-        input_reader = read_user_messages_json()
-    else:
-        print("Agent Saddlery — 0.1 echo loop. Type a message; Ctrl-D to exit.")
-        input_reader = read_user_messages_interactive()
 
+    # Scheduled as a background task (not awaited inline) so the loop keeps reading
+    # stdin while a run is suspended on a pending permission ask — see resolve_permission().
+    # Assumes one turn in flight at a time: the TUI enforces this by disabling input
+    # until run_finish, but nothing here re-checks it if a second user_message arrived
+    # while pending_run is still running, the prior task would be overwritten unawaited.
+    pending_run: asyncio.Task | None = None
     try:
-        async for text in input_reader:
-            session.append(
-                UserMessage(session_id=session.session_id, principal=principal, content=text)
-            )
-            await agent.run(session, sink)
+        if use_json:
+            async for event_type, payload in read_input_lines():
+                if event_type == "user_message":
+                    session.append(
+                        UserMessage(
+                            session_id=session.session_id,
+                            principal=principal,
+                            content=payload["content"],
+                        )
+                    )
+                    pending_run = asyncio.ensure_future(agent.run(session, sink))
+                elif event_type == "permission_decision":
+                    await agent.resolve_permission(payload["tool_call_id"], payload["decision"])
+            if pending_run is not None:
+                await pending_run
+        else:
+            print("Agent Saddlery — 0.1 echo loop. Type a message; Ctrl-D to exit.")
+            async for text in read_user_messages_interactive():
+                session.append(
+                    UserMessage(session_id=session.session_id, principal=principal, content=text)
+                )
+                await agent.run(session, sink)
     finally:
         log.info("session_finished", session_id=session.session_id, event_count=len(session.events))
 
