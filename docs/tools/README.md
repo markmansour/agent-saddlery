@@ -106,7 +106,7 @@ name for lookup (`.get(name)`) and exports Anthropic-shaped specs (`.specs()` �
 ## Permission gate
 
 The `PermissionGate` (in [`backend/saddlery/permissions/gate.py`](../../backend/saddlery/permissions/gate.py))
-guards tool execution with a four-stage decision pipeline:
+guards tool execution with a five-stage decision pipeline:
 
 **Evaluation order:** remembered decisions → hooks → deny list → allow list → ask
 
@@ -120,7 +120,7 @@ guards tool execution with a four-stage decision pipeline:
 5. **Ask** — if none of the above resolved the decision, emit a `PermissionRequest` event and suspend
    `Agent.run()` awaiting `resolve_permission(tool_call_id, decision)` from the TUI.
 
-**Configuration (``.saddlery/permissions.json`):**
+**Configuration (`.saddlery/permissions.json`):**
 
 ```json
 {
