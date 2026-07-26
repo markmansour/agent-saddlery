@@ -55,6 +55,34 @@ Expect a `tool_call` event (`tool_name: "read_file"`) followed by a `tool_result
 depends on its judgment — there's no way to force a tool call through the real provider without
 network access; use `FakeProvider` for deterministic tests instead.
 
+## Testing the permission gate ask round-trip
+
+To manually exercise the permission gate (especially the ask/permission prompt flow), ensure
+`.saddlery/permissions.json` is **not** pre-configured to allow the tool. Then run the TUI:
+
+```bash
+cd frontend/tui
+npm run dev
+```
+
+Ask the agent to read or write a file. A `permission_request` prompt will appear in the TUI;
+answer yes or no. Watch the `tui.log` to see the `permission_request` and `permission_decision`
+events (search for `permission`).
+
+**To skip prompts in repeated manual testing,** pre-populate `.saddlery/permissions.json` at the
+repo root:
+
+```json
+{
+  "allow": ["read_file", "write_file"],
+  "deny": []
+}
+```
+
+This caches the decision at the project level, so repeated runs of the TUI or backend will use
+it automatically. Omit this file (or leave the relevant tools off both lists) to return to the
+prompting behavior.
+
 ## Debugging tool calls
 
 See [`docs/tools/README.md`](docs/tools/README.md#debugging-tool-calls) for where tool-call

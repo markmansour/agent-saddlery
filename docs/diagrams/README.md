@@ -9,6 +9,7 @@ Mermaid diagrams for the `saddlery` core. They render inline on GitHub and Linea
 | [events-er.md](events-er.md) | Generated — ER diagram of the event models + `Message`. |
 | [echo-loop-sequence.md](echo-loop-sequence.md) | Hand-authored — the 0.1 echo-loop sequence. |
 | [tool-round-trip-sequence.md](tool-round-trip-sequence.md) | Hand-authored — the MM-8 tool-calling round-trip. |
+| [permission-gate-sequence.md](permission-gate-sequence.md) | Hand-authored — the MM-9 permission gate ask round-trip. |
 
 ## Regenerate
 

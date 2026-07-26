@@ -29,6 +29,9 @@ npm install   # first time only
 npm run dev
 ```
 
+Tool calls without an allow/deny entry in `.saddlery/permissions.json` will prompt for approval
+in the TUI — see [`docs/tools/README.md`](docs/tools/README.md#permission-gate) for details.
+
 See [`DEVELOPMENT.md`](DEVELOPMENT.md) for running tests/lint/type-checks and debugging tips.
 
 ## Architecture (locked decisions)

@@ -66,6 +66,86 @@ name for lookup (`.get(name)`) and exports Anthropic-shaped specs (`.specs()` �
 | Permission denied | `Permission denied: <path>` |
 | Not valid UTF-8 | `Failed to decode file as UTF-8: <error>` |
 
+### `write_file`
+
+[`backend/saddlery/tools/write_file.py`](../../backend/saddlery/tools/write_file.py) —
+`FileWriteTool`. Writes text content to a file (UTF-8), creating or overwriting it.
+
+**Schema:**
+```json
+{
+  "type": "object",
+  "properties": {
+    "path": {"type": "string", "description": "The path to the file to write, relative to the root."},
+    "content": {"type": "string", "description": "The text content to write to the file."}
+  },
+  "required": ["path", "content"]
+}
+```
+
+**Safety constraints:**
+- Constructed with a `root: Path` (defaults to `Path.cwd()`). All writes are resolved relative to
+  this root.
+- Path traversal is rejected: the resolved path must be `relative_to()` the resolved root, so
+  `../../etc/passwd` or an absolute path outside root returns an error result, not a write.
+- Directories are rejected (`is_dir()` check) rather than raising `IsADirectoryError`.
+- Parent directories must exist — writes to nonexistent parent paths return an error.
+
+**Error results** (all `is_error=True`, never raised):
+| Condition | Message |
+|---|---|
+| Missing `path` argument | `Missing required argument: path` |
+| Missing `content` argument | `Missing required argument: content` |
+| `path` not a string | `path must be a string, got <type>` |
+| `content` not a string | `content must be a string, got <type>` |
+| Path escapes root | `Path <path> escapes root directory.` |
+| Path is a directory | `Path <path> is a directory, not a file.` |
+| Parent directory not found | `Parent directory not found for: <path>` |
+| Permission denied | `Permission denied: <path>` |
+
+## Permission gate
+
+The `PermissionGate` (in [`backend/saddlery/permissions/gate.py`](../../backend/saddlery/permissions/gate.py))
+guards tool execution with a four-stage decision pipeline:
+
+**Evaluation order:** remembered decisions → hooks → deny list → allow list → ask
+
+1. **Remembered decisions** — if the agent has already decided to allow or deny this tool for this
+   principal in this session, reuse that decision (no re-prompting).
+2. **Hooks** — run registered hook functions (none by default; a hook can pass, allow, deny, or ask).
+3. **Deny list** — if the tool name matches an entry in `.saddlery/permissions.json`'s `"deny"` array,
+   the tool is blocked.
+4. **Allow list** — if the tool name matches an entry in `.saddlery/permissions.json`'s `"allow"` array,
+   the tool is allowed.
+5. **Ask** — if none of the above resolved the decision, emit a `PermissionRequest` event and suspend
+   `Agent.run()` awaiting `resolve_permission(tool_call_id, decision)` from the TUI.
+
+**Configuration (``.saddlery/permissions.json`):**
+
+```json
+{
+  "allow": ["read_file"],
+  "deny": []
+}
+```
+
+All fields are optional; omitted fields default to empty arrays. Tools not listed fall through to
+the ask stage, which is the safe default.
+
+**In the TUI:** When a tool call is pending permission (`PermissionRequest` event), the user is
+prompted to allow or deny it. The decision is sent back via `resolve_permission()`, then cached
+via `PermissionGate.remember()` so the same principal is not re-prompted for the same tool in
+this session.
+
+**Events:**
+- `PermissionRequest` — emitted when the ask stage is reached. Fields: `tool_call_id`, `tool_name`,
+  `arguments`, `principal`.
+- `PermissionDecision` — emitted after the user (or a hook) resolves the pending request.
+  Fields: `tool_call_id`, `decision` ("allow" or "deny").
+
+See [`docs/diagrams/permission-gate-sequence.md`](../diagrams/permission-gate-sequence.md) for the
+full ask round-trip sequence.
+
 ## Adding a tool
 
 1. Implement the `Tool` protocol (see `read_file.py` as a template): validate arguments
