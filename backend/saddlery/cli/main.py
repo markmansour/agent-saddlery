@@ -16,9 +16,12 @@ from saddlery.events import UserMessage
 from saddlery.llm.anthropic_provider import AnthropicProvider
 from saddlery.llm.mock_provider import MockLMProvider
 from saddlery.logging import configure_logging
+from saddlery.permissions.config import load_permission_config
+from saddlery.permissions.gate import PermissionGate
 from saddlery.session import Session
 from saddlery.tools.read_file import FileReadTool
 from saddlery.tools.registry import ToolRegistry
+from saddlery.tools.write_file import FileWriteTool
 from saddlery.transport.cli import CliSink, LoggingSink
 
 
@@ -38,7 +41,13 @@ def build_agent() -> Agent:
             reason="--test-mode flag set" if test_mode_flag else "ANTHROPIC_API_KEY not set",
         )
     provider = MockLMProvider() if use_mock else AnthropicProvider()
-    return Agent(provider=provider, tools=ToolRegistry([FileReadTool()]))
+    allow, deny = load_permission_config()
+    gate = PermissionGate(allow=allow, deny=deny)
+    return Agent(
+        provider=provider,
+        tools=ToolRegistry([FileReadTool(), FileWriteTool()]),
+        permission_gate=gate,
+    )
 
 
 def _use_json_input() -> bool:
