@@ -199,6 +199,23 @@ export class CoreSubprocess extends EventEmitter {
       if (toolCallId) {
         this.emit("tool_result", { id: toolCallId, content: content ?? "", isError: isError ?? false });
       }
+    } else if (eventType === "permission_request") {
+      const eventData = event.event_data as Record<string, unknown>;
+      const toolCallId = eventData?.tool_call_id as string | undefined;
+      const toolName = eventData?.tool_name as string | undefined;
+      const args = eventData?.arguments as Record<string, unknown> | undefined;
+      const ts = new Date().toISOString();
+      appendFileSync(
+        "tui.log",
+        `${ts} [? ask] ${toolName}(${JSON.stringify(args)})\n`
+      );
+      if (toolCallId && toolName) {
+        this.emit("permission_request", {
+          toolCallId,
+          toolName,
+          arguments: args ?? {},
+        });
+      }
     } else if (eventType === "run_finished") {
       const ts = new Date().toISOString();
       appendFileSync("tui.log", `${ts} [✓ finished]\n`);
@@ -227,6 +244,24 @@ export class CoreSubprocess extends EventEmitter {
     const msgStr = JSON.stringify(msg);
     const ts = new Date().toISOString();
     appendFileSync("tui.log", `${ts} [→ user] ${content}\n`);
+    appendFileSync("tui.log", `${ts} [wire→] ${msgStr}\n`);
+    this.process.stdin.write(msgStr + "\n");
+  }
+
+  sendPermissionDecision(toolCallId: string, decision: "allow" | "deny"): void {
+    if (!this.process?.stdin) {
+      throw new Error("Core process not running");
+    }
+
+    const msg = {
+      type: "permission_decision",
+      tool_call_id: toolCallId,
+      decision,
+    };
+
+    const msgStr = JSON.stringify(msg);
+    const ts = new Date().toISOString();
+    appendFileSync("tui.log", `${ts} [→ decision] ${toolCallId}: ${decision}\n`);
     appendFileSync("tui.log", `${ts} [wire→] ${msgStr}\n`);
     this.process.stdin.write(msgStr + "\n");
   }
