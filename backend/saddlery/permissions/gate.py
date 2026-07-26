@@ -25,8 +25,16 @@ class PermissionGate:
         self._allow = allow
         self._deny = deny
         self._hooks = hooks or []
+        self._remembered: dict[tuple[str, str], Literal["allow", "deny"]] = {}
+
+    def remember(self, tool_name: str, principal: str, decision: Literal["allow", "deny"]) -> None:
+        self._remembered[(principal, tool_name)] = decision
 
     async def check(self, tool_name: str, arguments: dict, principal: str) -> Decision:
+        remembered = self._remembered.get((principal, tool_name))
+        if remembered is not None:
+            return remembered
+
         for hook in self._hooks:
             result = hook(tool_name, arguments, principal)
             if result != "pass":

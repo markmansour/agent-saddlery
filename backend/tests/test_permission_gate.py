@@ -68,3 +68,42 @@ async def test_no_hooks_behaves_like_task_2():
     gate = PermissionGate(allow={"read_file"}, deny=set())
     decision = await gate.check("read_file", {}, "local")
     assert decision == "allow"
+
+
+async def test_remembered_decision_short_circuits_future_checks():
+    """Once a decision is remembered for (principal, tool_name), check() returns it directly."""
+    gate = PermissionGate(allow=set(), deny=set())  # unlisted -> would normally ask
+
+    gate.remember("write_file", "local", "allow")
+    decision = await gate.check("write_file", {}, "local")
+
+    assert decision == "allow"
+
+
+async def test_remembered_decision_is_scoped_per_principal():
+    """A decision remembered for one principal does not apply to another."""
+    gate = PermissionGate(allow=set(), deny=set())
+
+    gate.remember("write_file", "local", "allow")
+    decision = await gate.check("write_file", {}, "other-user")
+
+    assert decision == "ask"  # not remembered for this principal
+
+
+async def test_remembered_decision_is_scoped_per_tool():
+    """A decision remembered for one tool does not apply to another tool."""
+    gate = PermissionGate(allow=set(), deny=set())
+
+    gate.remember("write_file", "local", "allow")
+    decision = await gate.check("shell", {}, "local")
+
+    assert decision == "ask"  # different tool, not remembered
+
+
+async def test_remembered_deny_short_circuits_future_checks():
+    gate = PermissionGate(allow={"write_file"}, deny=set())  # would normally allow
+
+    gate.remember("write_file", "local", "deny")
+    decision = await gate.check("write_file", {}, "local")
+
+    assert decision == "deny"
