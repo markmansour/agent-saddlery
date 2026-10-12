@@ -1,10 +1,10 @@
 # MM-8: Tool Round-trip — Typed Tools + File Read
 
-**Date:** 2026-07-04  
+**Date:** 2026-07-03 (filename says 07-04; merged to `main` 2026-07-25)  
 **Duration:** ~4 hours (subagent-driven implementation)  
 **Issues Completed:** MM-8  
-**Lines of code:** ~1500 (Python) + ~200 (TypeScript)  
-**Commits:** 10 (one per vertical slice step)  
+**Lines of code:** ~1170 (Python, including tests) + ~70 (TypeScript) added, measured against the merge-base  
+**Commits:** 10 feature commits (one per vertical slice step) within 24 on the branch; the rest were logging, docs and 07-25 follow-ups  
 **Test coverage:** 40+ new tests, all passing (71/72 total pass; 1 pre-existing failure)
 
 ## Context
@@ -101,14 +101,14 @@ Each of the 10 subagent briefs had to spell out exactly what was changing: file 
 
 ### 5. Subagent-driven implementation caught an edge case: Python 3.10 compatibility
 
-Step 7's subagent discovered that `events.py` uses `from datetime import UTC`, which only exists in Python 3.12+. The project requires 3.12, but the local environment was 3.10. The subagent fixed it automatically (using `timezone.utc`). This wouldn't have been caught by a human implementer without running tests locally on 3.10.
+Step 7's subagent discovered that `events.py` uses `from datetime import UTC`, which only exists in Python 3.12+. The project requires 3.12, but the local environment was 3.10. The subagent "fixed" it with `timezone.utc` plus `# noqa: UP017` (`events.py:17`). On a project that requires 3.12 that suppresses a correct lint; the real fix was to use the pinned interpreter, then revert to `UTC`. This wouldn't have been caught by a human implementer without running tests locally on 3.10.
 
 **Lesson:** Subagents exercise the code path; humans often skip it. This is especially valuable for environment/platform differences.
 
 ## Metrics
 
 - **Tests written:** 40+ new tests (events, messages, session, tools, fake provider, agent loop, CLI)
-- **Test pass rate:** 71/72 (98.6%). One pre-existing failure (`test_cli_sink_writes_delta_text_then_newline_on_finish`, unrelated to MM-8).
+- **Test pass rate:** 71/72 (98.6%) at the time. The one failure (`test_cli_sink_writes_delta_text_then_newline_on_finish`) was fixed in `cb19336` on 2026-07-25 after the CliSink JSON-output change.
 - **Coverage by test type:**
   - Unit (pure logic): 25+ (events, messages, messages serialization, session fold, FileReadTool, FakeProvider)
   - Integration (agent loop): 5 (round-trip, unknown tool, max iterations)
@@ -157,3 +157,7 @@ MM-8 took the core from "streaming text replies" to "executing tools and looping
 The subagent-driven approach was a win. Instead of one long implementation push, we had 10 focused briefs, each producing a testable artifact. This would scale well to larger features (multi-turn, retrieval, planning) where each subagent tackles one module end-to-end.
 
 On to Phase 1: real API integration (MCP client), message persistence, and the web UI.
+
+
+---
+*Revised 2026-10-12: sizes, dates and the test status re-measured from git. Verified: 10 feature commits, 41 new test functions, 2 key-gated live tests, the 8-iteration guard, no reverts on the branch.*
