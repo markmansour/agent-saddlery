@@ -29,6 +29,9 @@ npm install   # first time only
 npm run dev
 ```
 
+The agent's file tools (`read_file`, `write_file`) are confined to the directory you launch the TUI
+from. To point them elsewhere, set `SADDLERY_ROOT`, e.g. `SADDLERY_ROOT=/path/to/project npm run dev`.
+
 Tool calls without an allow/deny entry in `.saddlery/permissions.json` will prompt for approval
 in the TUI — see [`docs/tools/README.md`](docs/tools/README.md#permission-gate) for details.
 

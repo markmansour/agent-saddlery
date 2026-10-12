@@ -6,6 +6,7 @@ import asyncio
 import os
 import sys
 import uuid
+from pathlib import Path
 
 import structlog
 from dotenv import load_dotenv
@@ -43,9 +44,12 @@ def build_agent() -> Agent:
     provider = MockLMProvider() if use_mock else AnthropicProvider()
     allow, deny = load_permission_config()
     gate = PermissionGate(allow=allow, deny=deny)
+    # The TUI runs this process from backend/ (so uv finds pyproject.toml), so the cwd is not
+    # the project. SADDLERY_ROOT names the directory the file tools may touch.
+    root = Path(os.environ["SADDLERY_ROOT"]) if os.environ.get("SADDLERY_ROOT") else None
     return Agent(
         provider=provider,
-        tools=ToolRegistry([FileReadTool(), FileWriteTool()]),
+        tools=ToolRegistry([FileReadTool(root), FileWriteTool(root)]),
         permission_gate=gate,
     )
 

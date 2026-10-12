@@ -12,6 +12,23 @@ export interface CoreEvent {
   [key: string]: unknown;
 }
 
+/**
+ * Environment for the Python core. The core runs from backend/ (so uv finds pyproject.toml),
+ * so its cwd is not the project; SADDLERY_ROOT tells its file tools which directory they may
+ * touch. Defaults to where the TUI was launched; an explicit SADDLERY_ROOT wins.
+ */
+export function buildCoreEnv(
+  base: NodeJS.ProcessEnv,
+  launchDir: string
+): NodeJS.ProcessEnv {
+  return {
+    ...base,
+    SADDLERY_ROOT: base.SADDLERY_ROOT || launchDir,
+    SADDLERY_LOG_FORMAT: "json",
+    PYTHONUNBUFFERED: "1",
+  };
+}
+
 export class CoreSubprocess extends EventEmitter {
   private process: ChildProcess | null = null;
   private sessionId: string = "";
@@ -25,11 +42,7 @@ export class CoreSubprocess extends EventEmitter {
 
     // Spawn Python core with --json-input flag and JSON logging
     // Use sh to cd into backend first (ensures uv finds pyproject.toml)
-    const env = {
-      ...process.env,
-      SADDLERY_LOG_FORMAT: "json",
-      PYTHONUNBUFFERED: "1",
-    };
+    const env = buildCoreEnv(process.env, process.cwd());
 
     appendFileSync("tui.log", `[subprocess] spawning core at ${backendPath}\n`);
     appendFileSync(

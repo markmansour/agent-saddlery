@@ -1,6 +1,8 @@
 from saddlery.agent import Agent
 from saddlery.cli.input import parse_input_line
 from saddlery.cli.main import build_agent
+from saddlery.tools.read_file import FileReadTool
+from saddlery.tools.write_file import FileWriteTool
 
 
 def test_parse_input_line_extracts_user_message():
@@ -54,3 +56,36 @@ def test_build_agent_constructs_permission_gate(monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
     agent = build_agent()
     assert agent.permission_gate is not None
+
+
+async def test_build_agent_roots_file_tools_at_saddlery_root(monkeypatch, tmp_path):
+    """SADDLERY_ROOT, not the process cwd, decides where the file tools read and write."""
+    (tmp_path / "hello.txt").write_text("hi there", encoding="utf-8")
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    monkeypatch.setenv("SADDLERY_ROOT", str(tmp_path))
+    monkeypatch.chdir(elsewhere)  # the TUI starts the backend in backend/, not the project
+
+    agent = build_agent()
+
+    read_tool = agent.tools.get("read_file")
+    write_tool = agent.tools.get("write_file")
+    assert isinstance(read_tool, FileReadTool)
+    assert isinstance(write_tool, FileWriteTool)
+    result = await read_tool.call({"path": "hello.txt"})
+    assert not result.is_error
+    assert result.content == "hi there"
+    assert write_tool.root == tmp_path
+
+
+async def test_build_agent_defaults_file_tool_root_to_cwd(monkeypatch, tmp_path):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    monkeypatch.delenv("SADDLERY_ROOT", raising=False)
+    monkeypatch.chdir(tmp_path)
+
+    agent = build_agent()
+
+    read_tool = agent.tools.get("read_file")
+    assert isinstance(read_tool, FileReadTool)
+    assert read_tool.root == tmp_path

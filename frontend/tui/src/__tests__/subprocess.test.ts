@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { CoreSubprocess } from "../core/subprocess";
+import { CoreSubprocess, buildCoreEnv } from "../core/subprocess";
 
 describe("CoreSubprocess", () => {
   let core: CoreSubprocess;
@@ -84,4 +84,18 @@ describe("CoreSubprocess", () => {
   //   await core.start();
   //   expect(core.getSessionId()).not.toBe("");
   // });
+});
+
+describe("buildCoreEnv", () => {
+  it("roots the core's file tools at the launch directory", () => {
+    const env = buildCoreEnv({ PATH: "/bin" }, "/work/project");
+    expect(env.SADDLERY_ROOT).toBe("/work/project");
+    expect(env.PYTHONUNBUFFERED).toBe("1");
+    expect(env.PATH).toBe("/bin");
+  });
+
+  it("lets an explicit SADDLERY_ROOT win over the launch directory", () => {
+    const env = buildCoreEnv({ SADDLERY_ROOT: "/elsewhere" }, "/work/project");
+    expect(env.SADDLERY_ROOT).toBe("/elsewhere");
+  });
 });
