@@ -27,7 +27,7 @@ memory rule in MM-9 §3 step 4.
 | # | Decision |
 |---|---|
 | 1 | A shell command that matches no rule asks, every time. |
-| 2 | Rules match a parsed argv token prefix. Compound commands never match an allow rule. Deny rules scan every segment. |
+| 2 | Rules match a parsed argv token prefix. Compound commands are rejected outright. |
 | 3 | A `write_file` approval covers that exact resolved path. |
 | 4 | Capability classes (`read`, `write`, `exec`, `network`) live on the `Tool`. A tool without a valid class fails at registration. |
 | 5 | Taint is in scope. A call is tainted when a `ToolResult` exists since the last `UserMessage`. |
@@ -35,7 +35,7 @@ memory rule in MM-9 §3 step 4.
 | 7 | Command parsing fails closed. |
 | 8 | Static deny is evaluated before hooks. A hook cannot override a deny rule. |
 | 9 | One run at a time per session. A second user message queues until the in-flight run finishes. |
-| 10 | Command substitution (`` ` ``, `$( )`, `<( )`) asks and may be approved once. Deny rules do not see inside it. This is a stated limit. |
+| 10 | Compound commands (operators, command substitution, and anything else that is not a simple command) are denied, never approved. The shell tool never invokes a shell. |
 | 11 | Path resources are NFC-normalized and case-folded for all matching. The tool re-verifies the resolved resource at write time, with no-follow. |
 | 12 | The shell tool uses `shell=False`, the classifier's argv and a sanitized environment. The classifier returns one immutable `ShellCommand` carried in `PolicyRequest`. |
 | 13 | A single-token executor allow rule (`bash`, `python`, `find`, ...) fails startup without `unsafe_broad_allow`. |
@@ -50,6 +50,9 @@ Static deny runs first, so **deny always wins**, including over a hook. Hooks ca
 ask on top of the static rules, and can allow anything that is not denied. A remembered decision
 ranks below deny and hooks, so an earlier approval can never override policy. A remembered deny
 still beats the allow list.
+
+A shell command the classifier marks `rejected` (§4) is denied at the deny step, so no hook, remembered
+decision or allow rule can reach it.
 
 **Change from the code.** `b4bc59b` fixed remembered-versus-hook ordering but left hooks ahead of
 deny, so a hook returning `allow` still overrides a static deny. `PermissionGate.check()` must
@@ -129,19 +132,19 @@ harmless. A rule that fails validation fails startup (§8).
 ## 4. Shell command parsing
 
 The shell tool's `resource()` runs a strict classifier. A command is **simple** only if every
-check passes. Anything else is **compound** and fails closed.
+check passes. Anything else is **rejected**: the gate denies it before hooks run, and the
+`ToolResult` says "Compound commands are not supported. Run each command separately." There is no
+approve-once path for a rejected command.
 
-The classifier runs once and returns an immutable `ShellCommand(raw, argv, kind, deny_segments)`.
-`kind` is `simple`, `compound` or `invalid`. `argv` is set only for `simple`. `deny_segments` holds
-the argv of every segment for the deny scan. `PolicyRequest` carries this object (`detail`), so the
-gate, hooks and prompt use one parse, with no re-parsing and no divergence.
+The classifier runs once and returns an immutable `ShellCommand(raw, argv, kind)`. `kind` is
+`simple` or `rejected`. `argv` is set only for `simple`. `PolicyRequest` carries this object
+(`detail`), so the gate, hooks and prompt use one parse, with no re-parsing and no divergence.
 
 **Executor.** The shell tool runs `subprocess` with `shell=False` and exactly the classifier's
 `argv`, a fixed sanitized environment (no inherited `BASH_ENV`, `ENV`, `LD_*`, `DYLD_*` or
-`PYTHON*`) and a fixed cwd. A `compound` or `invalid` command that the user approves is executed by
-a fixed `/bin/sh -c` invocation with the same sanitized environment, and the prompt marks it as
-shell-interpreted. The classifier's guarantees apply to `simple` commands only. Shell builtins
-(`cd`, `export`) do not work under `shell=False` and return an error `ToolResult`.
+`PYTHON*`) and a fixed cwd. The tool never invokes a shell, so only a `simple` command ever runs
+and the classifier's guarantee is total. Shell builtins (`cd`, `export`) do not exist without a
+shell and return an error `ToolResult`.
 
 Simple requires all of:
 
@@ -156,21 +159,15 @@ Simple requires all of:
 `FOO=1` prefix shifts argv. Checks 3 and 4 close those gaps. The classifier will reject some
 harmless commands, such as `echo "$5"`. A false ask costs a prompt. A false allow costs a command.
 
-**Effects of a compound result:**
+**Why reject instead of ask.** A compound command cannot run without a shell, and a deny scan over
+shell syntax is not airtight. `` echo `rm -rf /tmp/x` `` tokenizes as
+`` ['echo', '`rm', '-rf', '/tmp/x`'] ``, so a deny rule on `["rm", "-rf"]` would not match, and a
+user's one-time approval could then run it. Rejecting such commands removes that gap. The cost is
+that pipes, `&&` and redirects cannot run. The model must issue separate calls, and each one is
+checked on its own. A false reject costs a retry. A false allow costs a command.
 
-- It never matches an allow rule, so it asks.
-- The user may approve the exact string once. Shell approvals are never remembered (§6).
-- **Deny rules scan every segment.** The string is split on the operators above and each segment's
-  argv is checked against deny rules. `ls; rm -rf ~` is blocked.
-- A parse error asks. The deny scan falls back to whitespace splitting.
-
-**Stated limit: command substitution.** The segment scan splits on operators. It does not see
-inside `` `...` ``, `$( )` or `<( )`. `` echo `rm -rf /tmp/x` `` tokenizes as
-`` ['echo', '`rm', '-rf', '/tmp/x`'] ``, so a deny rule on `["rm", "-rf"]` does not match. Such a
-command is compound and asks, and the user may approve it once. That approval can run a command a
-deny rule names. The spec does not claim otherwise. Deny rules guarantee nothing about syntax the
-classifier does not parse. The prompt must show the raw command in full so the user can see the
-substitution.
+Allow and deny rules therefore apply to `simple` commands only, which is what makes argv-prefix
+matching sound.
 
 **Wrappers.** There is no wrapper blocklist. Programs that run their arguments are open-ended
 (`find -exec`, `git -c`, `python -c`, `awk`, `npm run`, `make`). Allow rules need none, because
@@ -182,10 +179,12 @@ they are explicit prefixes: `sudo git status` has `argv[0] == "sudo"` and cannot
   **fails startup** unless the rule sets `"unsafe_broad_allow": true`. With the flag it loads and
   logs a warning. `find` is on the list because `find . -delete` classifies as simple. The list is
   incomplete by nature, so it is a guard against common mistakes, not a proof.
-- The deny scan re-parses the string argument of `bash -c` and `sh -c`. This is best-effort.
+- A deny rule also matches the string argument of `bash -c` and `sh -c` after re-parsing it, as
+  a best-effort check.
 
-**The deny list is a tripwire, not a boundary** (see the stated limit above). String matching cannot be airtight against shell
-syntax (variable expansion, aliases, encoded payloads). The guard is that `exec` asks by default.
+**The deny list is a tripwire, not a boundary** (see the stated limit above). Even on simple commands, string matching cannot catch every
+route to a dangerous action (a script written earlier, an interpreter given inline code). The guard
+is that `exec` asks by default.
 
 ## 5. Taint
 
@@ -268,8 +267,9 @@ prompt and writes a `permission_decision` line. It holds no rules.
 - A user message sent during a run is queued, and taint is not reset by it.
 - Command classifier: a table-driven test. Cases: `ls; rm -rf ~`, `` echo `id` ``, `echo "$(id)"`,
   `ls\nrm -rf x`, `FOO=1 git status`, `sudo rm -rf /`, `bash -c "rm -rf /"`, `find . -exec rm {} +`,
-  an unclosed quote, and `echo "a;b"`. Each asserts simple or compound, and found deny segments.
-- Matching: prefix semantics, exact-tuple memory, compound never matches allow.
+  an unclosed quote, and `echo "a;b"`. Each asserts `simple` or `rejected`. A rejected command is
+  denied before hooks and the allow list, and is never executed.
+- Matching: prefix semantics, exact-tuple memory, a rejected command never reaches the allow list.
 - Taint: a fold test (true after a result, false after a new `UserMessage`), and the downgrade
   table in §5.
 - Registry: a missing or invalid capability raises at registration.
