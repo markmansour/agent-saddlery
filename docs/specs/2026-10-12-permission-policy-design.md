@@ -33,17 +33,25 @@ memory rule in MM-9 §3 step 4.
 | 5 | Taint is in scope. A call is tainted when a `ToolResult` exists since the last `UserMessage`. |
 | 6 | Policy lives in the backend. The TUI renders and relays. |
 | 7 | Command parsing fails closed. |
+| 8 | Static deny is evaluated before hooks. A hook cannot override a deny rule. |
+| 9 | One run at a time per session. A second user message queues until the in-flight run finishes. |
+| 10 | Command substitution (`` ` ``, `$( )`, `<( )`) asks and may be approved once. Deny rules do not see inside it. This is a stated limit. |
 
 ## 1. Evaluation order
 
-Unchanged from the fix in `b4bc59b`:
-
 ```
-hooks → deny → remembered → allow (taint-aware) → class default → ask
+deny → hooks → remembered → allow (taint-aware) → class default → ask
 ```
 
-Deny always wins. A remembered decision ranks below hooks and deny, so an earlier approval can
-never override policy. A remembered deny still beats the allow list.
+Static deny runs first, so **deny always wins**, including over a hook. Hooks can still deny or
+ask on top of the static rules, and can allow anything that is not denied. A remembered decision
+ranks below deny and hooks, so an earlier approval can never override policy. A remembered deny
+still beats the allow list.
+
+**Change from the code.** `b4bc59b` fixed remembered-versus-hook ordering but left hooks ahead of
+deny, so a hook returning `allow` still overrides a static deny. `PermissionGate.check()` must
+move the deny check ahead of the hooks. This reverses the "hooks first" order in the MM-9 spec.
+A test must cover a hook `allow` against a static deny.
 
 ## 2. Capability classes
 
@@ -119,6 +127,14 @@ harmless commands, such as `echo "$5"`. A false ask costs a prompt. A false allo
   argv is checked against deny rules. `ls; rm -rf ~` is blocked.
 - A parse error asks. The deny scan falls back to whitespace splitting.
 
+**Stated limit: command substitution.** The segment scan splits on operators. It does not see
+inside `` `...` ``, `$( )` or `<( )`. `` echo `rm -rf /tmp/x` `` tokenizes as
+`` ['echo', '`rm', '-rf', '/tmp/x`'] ``, so a deny rule on `["rm", "-rf"]` does not match. Such a
+command is compound and asks, and the user may approve it once. That approval can run a command a
+deny rule names. The spec does not claim otherwise. Deny rules guarantee nothing about syntax the
+classifier does not parse. The prompt must show the raw command in full so the user can see the
+substitution.
+
 **Wrappers.** There is no wrapper blocklist. Programs that run their arguments are open-ended
 (`find -exec`, `git -c`, `python -c`, `awk`, `npm run`, `make`). Allow rules need none, because
 they are explicit prefixes: `sudo git status` has `argv[0] == "sudo"` and cannot match
@@ -128,7 +144,7 @@ they are explicit prefixes: `sudo git status` has `argv[0] == "sudo"` and cannot
   `sh`, `python`, `node`, `env`, `xargs`, `find`, `sudo`).
 - The deny scan re-parses the string argument of `bash -c` and `sh -c`. This is best-effort.
 
-**The deny list is a tripwire, not a boundary.** String matching cannot be airtight against shell
+**The deny list is a tripwire, not a boundary** (see the stated limit above). String matching cannot be airtight against shell
 syntax (variable expansion, aliases, encoded payloads). The guard is that `exec` asks by default.
 
 ## 5. Taint
@@ -141,8 +157,8 @@ Taint acts at one point, the static allow list:
 
 | Step | Clean | Tainted |
 |---|---|---|
-| Hooks | see `tainted` and decide | same |
 | Deny | blocks | blocks |
+| Hooks | see `tainted` and decide | same |
 | Remembered | applies | applies (the user saw that exact resource) |
 | Allow match, class `write`/`exec`/`network` | allow | **ask** |
 | Allow match, class `read` | allow | allow |
@@ -150,6 +166,13 @@ Taint acts at one point, the static allow list:
 
 Example, with `pytest` allowlisted: "run the tests" runs without a prompt. "Fix the failures" does
 `read_file` first, so the later `pytest` asks.
+
+**One run at a time.** The taint fold is sound only if user messages and runs do not overlap.
+`cli/main.py` currently schedules each turn as a background task, so a second `UserMessage` can
+arrive while the first run is still using an untrusted `ToolResult`, which would reset taint. The
+backend therefore serializes runs per session. A message that arrives during a run is queued and
+appended to the event log only when its run starts. This changes the CLI's current behavior and is
+part of the implementation plan.
 
 **Known limitation.** Taint resets on each user message. This is a heuristic, not provenance. An
 injection read in turn 1 can still sway the model in turn 3, which looks clean. See Future work.
@@ -199,6 +222,8 @@ prompt and writes a `permission_decision` line. It holds no rules.
 ## Testing
 
 - Hook deny and static deny beat a remembered allow (written in `b4bc59b`).
+- A hook `allow` does not override a static deny.
+- A user message sent during a run is queued, and taint is not reset by it.
 - Command classifier: a table-driven test. Cases: `ls; rm -rf ~`, `` echo `id` ``, `echo "$(id)"`,
   `ls\nrm -rf x`, `FOO=1 git status`, `sudo rm -rf /`, `bash -c "rm -rf /"`, `find . -exec rm {} +`,
   an unclosed quote, and `echo "a;b"`. Each asserts simple or compound, and found deny segments.
