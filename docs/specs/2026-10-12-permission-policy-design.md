@@ -36,6 +36,9 @@ memory rule in MM-9 §3 step 4.
 | 8 | Static deny is evaluated before hooks. A hook cannot override a deny rule. |
 | 9 | One run at a time per session. A second user message queues until the in-flight run finishes. |
 | 10 | Command substitution (`` ` ``, `$( )`, `<( )`) asks and may be approved once. Deny rules do not see inside it. This is a stated limit. |
+| 11 | Path resources are NFC-normalized and case-folded for all matching. The tool re-verifies the resolved resource at write time, with no-follow. |
+| 12 | The shell tool uses `shell=False`, the classifier's argv and a sanitized environment. The classifier returns one immutable `ShellCommand` carried in `PolicyRequest`. |
+| 13 | A single-token executor allow rule (`bash`, `python`, `find`, ...) fails startup without `unsafe_broad_allow`. |
 
 ## 1. Evaluation order
 
@@ -101,10 +104,44 @@ tokens. A bare tool name means the whole tool, so existing config keeps working.
 `["docs"]` on `write_file` matches every path under `docs/`. `["git", "status"]` on shell matches
 `git status` and `git status -s`. Remembered approvals use exact tuple equality, not prefix.
 
+**Path canonicalization.** A path resource is built as follows:
+
+1. Resolve against `root` (symlinks followed). A result outside `root` is an error, not a resource.
+2. Take the path parts relative to `root`. `..`, `.` and empty parts cannot remain.
+3. Normalize each part to NFC and case-fold it. Matching and remembered equality both use the
+   normalized form, always, on every filesystem. Rules are normalized the same way at load. This is
+   deliberate: on macOS's default case-insensitive filesystem `Docs/a.md` reaches `docs/`, and a
+   deny rule on `["docs"]` must still match. Case-folding on a case-sensitive filesystem only makes
+   deny rules broader, which fails closed.
+
+Matching is on whole tokens, so `["docs"]` does not match `docs-private`.
+
+**Race between check and use.** The resource is computed before the tool runs, so a parent
+directory could become a symlink in between. The tool therefore re-resolves immediately before
+writing, verifies the normalized resource equals the approved one, and opens the target with
+no-follow semantics. A mismatch returns an error `ToolResult`, with no write.
+
+**Rule validation.** A rule's `match` must be a non-empty list of non-empty strings. For path
+tools, tokens may not contain a separator, `..` or `.`, and may not be absolute. A deny rule that
+matches takes precedence over every allow rule, including a bare-tool allow. Duplicate rules are
+harmless. A rule that fails validation fails startup (§8).
+
 ## 4. Shell command parsing
 
 The shell tool's `resource()` runs a strict classifier. A command is **simple** only if every
 check passes. Anything else is **compound** and fails closed.
+
+The classifier runs once and returns an immutable `ShellCommand(raw, argv, kind, deny_segments)`.
+`kind` is `simple`, `compound` or `invalid`. `argv` is set only for `simple`. `deny_segments` holds
+the argv of every segment for the deny scan. `PolicyRequest` carries this object (`detail`), so the
+gate, hooks and prompt use one parse, with no re-parsing and no divergence.
+
+**Executor.** The shell tool runs `subprocess` with `shell=False` and exactly the classifier's
+`argv`, a fixed sanitized environment (no inherited `BASH_ENV`, `ENV`, `LD_*`, `DYLD_*` or
+`PYTHON*`) and a fixed cwd. A `compound` or `invalid` command that the user approves is executed by
+a fixed `/bin/sh -c` invocation with the same sanitized environment, and the prompt marks it as
+shell-interpreted. The classifier's guarantees apply to `simple` commands only. Shell builtins
+(`cd`, `export`) do not work under `shell=False` and return an error `ToolResult`.
 
 Simple requires all of:
 
@@ -140,8 +177,11 @@ substitution.
 they are explicit prefixes: `sudo git status` has `argv[0] == "sudo"` and cannot match
 `["git", "status"]`. Two measures remain:
 
-- Config load **warns** on a single-token allow rule for a known interpreter or executor (`bash`,
-  `sh`, `python`, `node`, `env`, `xargs`, `find`, `sudo`).
+- A single-token allow rule for a known interpreter or executor (`bash`, `sh`, `zsh`, `python`,
+  `python3`, `node`, `ruby`, `perl`, `env`, `xargs`, `find`, `sudo`, `awk`, `make`, `npm`)
+  **fails startup** unless the rule sets `"unsafe_broad_allow": true`. With the flag it loads and
+  logs a warning. `find` is on the list because `find . -delete` classifies as simple. The list is
+  incomplete by nature, so it is a guard against common mistakes, not a proof.
 - The deny scan re-parses the string argument of `bash -c` and `sh -c`. This is best-effort.
 
 **The deny list is a tripwire, not a boundary** (see the stated limit above). String matching cannot be airtight against shell
@@ -189,8 +229,9 @@ Memory varies by class.
 
 ## 7. Gate API, events and wire
 
-- `PolicyRequest(tool_name, arguments, principal, capability, resource, tainted)`: immutable,
-  built by `Agent.run()`.
+- `PolicyRequest(tool_name, arguments, principal, capability, resource, tainted, detail)`: immutable,
+  built by `Agent.run()`. `detail` is the tool's structured classification (a `ShellCommand` for
+  shell, otherwise `None`).
 - `PermissionGate.check(request) -> Decision`.
 - `Hook = Callable[[PolicyRequest], HookResult]`. This changes the MM-9 signature. Only tests use
   hooks today.
@@ -217,7 +258,8 @@ prompt and writes a `permission_decision` line. It holds no rules.
 - **Malformed file, unknown tool in a rule, or invalid rule:** startup fails with a clear message.
   MM-9 treated a malformed file as empty. With deny rules that now matter, that silently drops
   them, which is fail-open.
-- **Over-broad rule** (§4): a warning at load.
+- **Over-broad rule** (§4): a single-token executor allow rule fails startup unless it sets
+  `unsafe_broad_allow`; with the flag it loads and logs a warning.
 
 ## Testing
 
@@ -231,7 +273,13 @@ prompt and writes a `permission_decision` line. It holds no rules.
 - Taint: a fold test (true after a result, false after a new `UserMessage`), and the downgrade
   table in §5.
 - Registry: a missing or invalid capability raises at registration.
-- Config: each startup failure, and the over-broad warning.
+- Config: each startup failure, the over-broad rule with and without `unsafe_broad_allow`, and each
+  rule-validation failure (empty `match`, separator or `..` in a path token, absolute path).
+- Paths: `docs-private` does not match `["docs"]`; `docs/../private` and a symlink out of `root`
+  are rejected; `Docs/a.md` and an NFD-encoded name match a deny rule on `["docs"]`; a symlink
+  swapped in after approval makes the write fail with no write.
+- Executor: a `simple` command runs with `shell=False` and the sanitized environment (an inherited
+  `BASH_ENV` has no effect); a builtin such as `cd` returns an error result.
 - End to end: with `pytest` allowlisted, "run the tests" runs unprompted. A turn that reads a file
   first prompts, and the `PermissionRequest` has `tainted=true`.
 
