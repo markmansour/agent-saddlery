@@ -1,10 +1,10 @@
 # Phase 0 Retrospective — Walking Skeleton Complete
 
-**Date:** 2026-07-04  
-**Duration:** 17 days (2026-06-17 to 2026-07-04)  
+**Date:** 2026-07-03 (committed in `e24339b`; filename says 07-04)  
+**Duration:** 2026-06-16 to 2026-07-03 (18 calendar days, 6 active commit days; 51 of 98 commits landed on 07-03)  
 **Issues Completed:** MM-5 through MM-7 (Echo loop, Refactoring, Ink TUI)  
-**Lines of code:** ~2000 (Python core) + ~1500 (TUI TypeScript)  
-**Commits:** 80+ across both backend and frontend
+**Lines of code:** ~800 (Python core) + ~600 (TUI TypeScript), measured at commit `e24339b`  
+**Commits:** 98 through `e24339b`
 
 ## What We Set Out To Do
 
@@ -97,7 +97,7 @@ Using `MockLMProvider` instead of the real Anthropic API was the right call. It:
 - Let us focus on the TUI/core integration, not API integration
 - Proved the protocol worked end-to-end without external dependencies
 
-The cost: One bug (wrong method name) masked itself as protocol compliance ("it parsed as JSON, so it worked") for a while. We should have had a type-level check that MockLMProvider implements the right interface. We do now (Protocol[LLMProvider]).
+The cost: One bug (wrong method name) masked itself as protocol compliance ("it parsed as JSON, so it worked") for a while. We should have had a type-level check that MockLMProvider implements the right interface. `MockLMProvider` now subclasses the `LLMProvider` Protocol explicitly, so the type checker enforces the method names.
 
 ## Dead Ends & What We Learned
 
@@ -119,7 +119,7 @@ The classic React pattern (props-driven rendering) breaks down when you're accum
 Running a subprocess with piped I/O is feasible for a local dev tool, but it has environmental requirements (cwd, buffering flags, shell setup). The isolation is worth it, but deployment needs care.
 
 ### 3. Protocol Boundaries Need Type Safety
-The fact that MockLMProvider had the wrong method name (stream_completion vs stream) and we *still* got valid JSON was a red flag. The fix: Protocol[LLMProvider] at the type level. Now this is enforced.
+The fact that MockLMProvider had the wrong method name (stream_completion vs stream) and we *still* got valid JSON was a red flag. The fix: subclass the `LLMProvider` Protocol explicitly so the type checker enforces the contract.
 
 ### 4. Logging Can't Be Bolted On
 It's tempting to add logging as you hit friction points. But this leads to chaotic iteration. Better: design upfront (even a rough 1-page design beats no design), then implement. The agent's code review identified 10 issues; a design-first approach would have caught most of them.
@@ -133,18 +133,18 @@ Unit tests didn't catch the streaming bug. The bug only manifested in real usage
 2. **Message persistence** — No save/load yet. Phase 1 should add this.
 3. **Logging architecture** — We have trace/wire/app logs; still missing handler-level instrumentation and message IDs for correlation.
 4. **Web UI** — TUI is working; web UI is separate phase.
-5. **Tool use** — Core doesn't call tools yet. That's Phase 2.
+5. **Tool use** — Not in this phase. Landed afterwards as MM-8 (see its devlog).
 
 ## Metrics
 
-- **Time spent:** ~20 hours over 17 days
+- **Time spent (author's estimate, not measured):** ~20 hours over 18 days
   - Architecture/setup: 4 hours
   - Streaming fixes: 6 hours
   - Logging iteration: 8 hours
   - Integration/polish: 2 hours
 - **Code churn:** High in logging (20+ commits), low elsewhere
 - **Bugs found:** 5 major (streaming state, protocol compliance, JSON serialization, subprocess blocking, wire protocol logging), ~10 minor (linting, type issues)
-- **Tests:** 6 unit tests (not sufficient), E2E manual (gold standard)
+- **Tests:** 33 test functions at `e24339b` (not sufficient for the TUI), E2E manual (gold standard)
 
 ## If I Built This Again
 
@@ -152,7 +152,7 @@ Unit tests didn't catch the streaming bug. The bug only manifested in real usage
 2. **Use message IDs from day 1.** Makes correlation trivial.
 3. **Separate wire protocol logging from start.** Don't bolt it on when you hit bugs.
 4. **Invest in E2E test harness earlier.** Manual testing works but doesn't scale.
-5. **Type-check protocol implementations.** Protocol[LLMProvider] prevented a class of bugs.
+5. **Type-check protocol implementations.** Explicit `LLMProvider` subclassing prevented a class of bugs.
 
 ## Closing Thoughts
 
@@ -161,3 +161,7 @@ Phase 0 achieved its goal: proving the protocol boundary works end-to-end. The p
 The biggest surprise was how much time logging took. I went into it thinking "logging is a detail," and came out understanding it's a first-class design concern. The agent's code review helped a lot here—external perspective catches what you're blind to.
 
 On to Phase 1: real API integration and message persistence.
+
+
+---
+*Revised 2026-10-12: header metrics re-measured from git; narrative claims (mock provider, `pendingMessageIdRef` fix, logging churn, `PYTHONUNBUFFERED`) verified against the code and commit history. "Real Claude API" in Open Threads is stale: `AnthropicProvider` existed from 0.1.*
