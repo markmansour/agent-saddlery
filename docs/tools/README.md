@@ -108,15 +108,17 @@ name for lookup (`.get(name)`) and exports Anthropic-shaped specs (`.specs()` �
 The `PermissionGate` (in [`backend/saddlery/permissions/gate.py`](../../backend/saddlery/permissions/gate.py))
 guards tool execution with a five-stage decision pipeline:
 
-**Evaluation order:** remembered decisions → hooks → deny list → allow list → ask
+**Evaluation order:** hooks → deny list → remembered decisions → allow list → ask
 
-1. **Remembered decisions** — if this tool was already allowed or denied for this principal
-   earlier in the same process, reuse that decision (no re-prompting). This is scoped to the
+1. **Hooks** — run registered hook functions (none by default; a hook can pass, allow, deny, or ask).
+   The first non-`pass` result decides.
+2. **Deny list** — if the tool name matches an entry in `.saddlery/permissions.json`'s `"deny"` array,
+   the tool is blocked.
+3. **Remembered decisions** — if this tool was already allowed or denied for this principal
+   earlier in the same process, reuse that decision (no re-prompting). It ranks below hooks and
+   the deny list, so an earlier approval never overrides policy. This is scoped to the
    process's lifetime, not a persisted session — see the design spec's note on stateless-backend
    limitations.
-2. **Hooks** — run registered hook functions (none by default; a hook can pass, allow, deny, or ask).
-3. **Deny list** — if the tool name matches an entry in `.saddlery/permissions.json`'s `"deny"` array,
-   the tool is blocked.
 4. **Allow list** — if the tool name matches an entry in `.saddlery/permissions.json`'s `"allow"` array,
    the tool is allowed.
 5. **Ask** — if none of the above resolved the decision, emit a `PermissionRequest` event and suspend

@@ -107,3 +107,26 @@ async def test_remembered_deny_short_circuits_future_checks():
     decision = await gate.check("write_file", {}, "local")
 
     assert decision == "deny"
+
+
+async def test_hook_deny_beats_remembered_allow():
+    """Approving a tool once must not switch off hooks: hooks still run first."""
+
+    def protect_git(tool_name: str, arguments: dict, principal: str) -> HookResult:
+        if tool_name == "write_file" and str(arguments.get("path", "")).startswith(".git/"):
+            return "deny"
+        return "pass"
+
+    gate = PermissionGate(allow=set(), deny=set(), hooks=[protect_git])
+    gate.remember("write_file", "local", "allow")  # the user approved a write earlier
+
+    assert await gate.check("write_file", {"path": "a.txt"}, "local") == "allow"
+    assert await gate.check("write_file", {"path": ".git/config"}, "local") == "deny"
+
+
+async def test_deny_list_beats_remembered_allow():
+    """Deny always wins, including over a remembered allow."""
+    gate = PermissionGate(allow=set(), deny={"write_file"})
+    gate.remember("write_file", "local", "allow")
+
+    assert await gate.check("write_file", {}, "local") == "deny"

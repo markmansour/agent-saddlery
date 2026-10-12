@@ -31,10 +31,6 @@ class PermissionGate:
         self._remembered[(principal, tool_name)] = decision
 
     async def check(self, tool_name: str, arguments: dict, principal: str) -> Decision:
-        remembered = self._remembered.get((principal, tool_name))
-        if remembered is not None:
-            return remembered
-
         for hook in self._hooks:
             result = hook(tool_name, arguments, principal)
             if result != "pass":
@@ -42,6 +38,13 @@ class PermissionGate:
 
         if tool_name in self._deny:
             return "deny"
+
+        # Remembered ask-decisions rank below hooks and deny, so an earlier approval
+        # can never override policy. They still beat the allow list (a remembered deny wins).
+        remembered = self._remembered.get((principal, tool_name))
+        if remembered is not None:
+            return remembered
+
         if tool_name in self._allow:
             return "allow"
         return "ask"
