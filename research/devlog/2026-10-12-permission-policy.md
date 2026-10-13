@@ -76,6 +76,11 @@ The review ran in three commits: `240383f`, `7403f62`, `a93ab72`.
   is a runtime expression. That would raise `NameError`. I had it imported at runtime.
 
 ## What we learned
+**Mark's note: the interesting part of tools development is the permissions model.** The tools
+themselves (`read_file`, `write_file`) were the easy part. The design work in this slice went into
+what a tool may touch, what an approval covers, and what changes when untrusted content is in
+context. That is also where every serious review finding landed.
+
 Tasks were built by subagents, each with a separate review. The review findings:
 
 - **Task 1 (capability classes, paths):** clean. Deferred: `O_NOFOLLOW` narrows only the
