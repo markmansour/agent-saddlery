@@ -32,8 +32,9 @@ npm run dev
 The agent's file tools (`read_file`, `write_file`) are confined to the directory you launch the TUI
 from. To point them elsewhere, set `SADDLERY_ROOT`, e.g. `SADDLERY_ROOT=/path/to/project npm run dev`.
 
-Tool calls without an allow/deny entry in `.saddlery/permissions.json` will prompt for approval
-in the TUI — see [`docs/tools/README.md`](docs/tools/README.md#permission-gate) for details.
+`read_file` runs without a prompt. `write_file` prompts for each exact path. An allow rule for a
+write still prompts once the agent has read a file this turn, because the call follows untrusted
+content. A malformed `.saddlery/permissions.json` stops startup. Details: [`docs/tools/README.md`](docs/tools/README.md#permission-gate).
 
 See [`DEVELOPMENT.md`](DEVELOPMENT.md) for running tests/lint/type-checks and debugging tips.
 

@@ -57,20 +57,23 @@ network access; use `FakeProvider` for deterministic tests instead.
 
 ## Testing the permission gate ask round-trip
 
-To manually exercise the permission gate (especially the ask/permission prompt flow), ensure
-`.saddlery/permissions.json` is **not** pre-configured to allow the tool. Then run the TUI:
+`read_file` runs without a prompt (its class default is allow). To exercise the prompt, ask the
+agent to **write** a file. Run the TUI:
 
 ```bash
 cd frontend/tui
 npm run dev
 ```
 
-Ask the agent to read or write a file. A `permission_request` prompt will appear in the TUI;
-answer yes or no. Watch the `tui.log` to see the `permission_request` and `permission_decision`
-events (search for `permission`).
+A `permission_request` prompt appears in the TUI; answer yes or no. Watch `tui.log` for the
+`permission_request` and `permission_decision` events (search for `permission`). Approving a write
+to `a.txt` does not approve `b.txt`.
 
-**To skip prompts in repeated manual testing,** pre-populate `.saddlery/permissions.json` at the
-repo root:
+To exercise the taint prompt, ask the agent to read a file and then write one. The write prompts
+with "(follows untrusted content)", even when `write_file` is allowlisted.
+
+`.saddlery/permissions.json` at the project root holds blanket allow and deny rules. It does not
+cache decisions:
 
 ```json
 {
@@ -79,9 +82,13 @@ repo root:
 }
 ```
 
-This caches the decision at the project level, so repeated runs of the TUI or backend will use
-it automatically. Omit this file (or leave the relevant tools off both lists) to return to the
-prompting behavior.
+With this file, a write runs unprompted until the agent has read a file in the same turn. After a
+read, writes ask again. Remove the file to return to default prompting. A malformed file stops
+startup with a `permissions config error`.
+
+The four MM-212 demo scenarios (read without a prompt; per-path write approval; allowlisted write
+still prompts after a read; malformed file stops startup) are listed in
+[`research/devlog/2026-10-12-permission-policy.md`](research/devlog/2026-10-12-permission-policy.md#demo--test-verification).
 
 ## Debugging tool calls
 

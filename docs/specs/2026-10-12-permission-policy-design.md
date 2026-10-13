@@ -36,7 +36,7 @@ memory rule in MM-9 §3 step 4.
 | 8 | Static deny is evaluated before hooks. A hook cannot override a deny rule. |
 | 9 | One run at a time per session. A second user message queues until the in-flight run finishes. |
 | 10 | Compound commands (operators, command substitution, and anything else that is not a simple command) are denied, never approved. The shell tool never invokes a shell. |
-| 11 | Path resources are NFC-normalized and case-folded for all matching. The tool re-verifies the resolved resource at write time, with no-follow. |
+| 11 | Path resources are NFC-normalized and case-folded for all matching. `Agent` recomputes the resource after approval and refuses the call if it changed. `write_file` opens its target with no-follow on the final component. |
 | 12 | The shell tool uses `shell=False`, the classifier's argv and a sanitized environment. The classifier returns one immutable `ShellCommand` carried in `PolicyRequest`. |
 | 13 | A single-token executor allow rule (`bash`, `python`, `find`, ...) fails startup without `unsafe_broad_allow`. |
 
@@ -129,9 +129,11 @@ Matching is on whole tokens, so `["docs"]` does not match `docs-private`. Matchi
 tool's tokens (not only path tokens); this only widens matching and fails closed for deny.
 
 **Race between check and use.** The resource is computed before the tool runs, so a parent
-directory could become a symlink in between. The tool therefore re-resolves immediately before
-writing, verifies the normalized resource equals the approved one, and opens the target with
-no-follow semantics. A mismatch returns an error `ToolResult`, with no write.
+directory could become a symlink in between. `Agent` therefore recomputes `tool.resource()` after
+any allow, immediately before executing, and refuses the call if it differs from the checked one
+("Permission denied: the target changed after approval."). `write_file` itself only opens the
+target with `O_NOFOLLOW`, which covers the final path component. A swapped parent directory is
+caught only by the `Agent` recheck, not by `O_NOFOLLOW`.
 
 **Rule validation.** A rule's `match` must be a non-empty list of non-empty strings. For path
 tools, tokens may not contain a separator, `..` or `.`, and may not be absolute. A deny rule that
