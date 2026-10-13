@@ -4,6 +4,7 @@ import MessageHistory from "./MessageHistory.js";
 import InputBox from "./InputBox.js";
 import StatusLine from "./StatusLine.js";
 import { CoreSubprocess } from "../core/subprocess.js";
+import { formatToolCall } from "./toolCallLabel.js";
 import { formatPermissionPrompt, type PermissionRequestInfo } from "./permissionPrompt.js";
 
 interface Message {
@@ -57,7 +58,7 @@ const ChatApp = () => {
           const toolMsg: Message = {
             id: `tool-${call.id}`,
             role: "tool",
-            content: `→ ${call.name}(${JSON.stringify(call.arguments)})`,
+            content: formatToolCall(call.name, call.arguments),
             toolName: call.name,
           };
           setMessages((prev) => [...prev, toolMsg]);
