@@ -23,6 +23,10 @@ class ToolRegistry:
                 )
         self._tools = {tool.name: tool for tool in tools}
 
+    def names(self) -> list[str]:
+        """Registered tool names."""
+        return list(self._tools)
+
     def get(self, name: str) -> Tool | None:
         """Look up a tool by name."""
         return self._tools.get(name)

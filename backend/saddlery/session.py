@@ -26,6 +26,15 @@ class Session:
     def append(self, event: Event) -> None:
         self._events.append(event)
 
+    def is_tainted(self) -> bool:
+        """True when a ToolResult (untrusted content) exists since the last UserMessage."""
+        for event in reversed(self._events):
+            if isinstance(event, UserMessage):
+                return False
+            if isinstance(event, ToolResult):
+                return True
+        return False
+
     def to_messages(self) -> list[Message]:
         messages: list[Message] = []
         for event in self._events:

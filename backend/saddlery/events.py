@@ -75,6 +75,9 @@ class PermissionRequest(BaseEvent):
     tool_call_id: str
     tool_name: str
     arguments: dict
+    capability: Literal["read", "write", "exec", "network"]
+    resource: list[str]
+    tainted: bool
 
 
 class PermissionDecision(BaseEvent):

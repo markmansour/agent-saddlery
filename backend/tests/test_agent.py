@@ -2,12 +2,12 @@ import asyncio
 from typing import ClassVar
 
 from saddlery.agent import Agent
-from saddlery.events import UserMessage
+from saddlery.events import ToolResult, UserMessage
 from saddlery.llm.base import TextDelta, ToolCallDelta
 from saddlery.llm.fake import FakeProvider
 from saddlery.permissions.gate import PermissionGate
 from saddlery.session import Session
-from saddlery.tools.base import Capability, ToolExecutionResult
+from saddlery.tools.base import Capability, ResourceError, ToolExecutionResult
 from saddlery.tools.registry import ToolRegistry
 from saddlery.transport.recording import RecordingSink
 
@@ -38,8 +38,12 @@ class _StubTool(_PolicyStub):
         name: str = "test_tool",
         response: str = "success",
         is_error: bool = False,
+        capability: Capability = "write",
+        resource: tuple[str, ...] = ("stub",),
     ) -> None:
         self.name = name
+        self.capability = capability
+        self._resource = resource
         self.description = f"Test tool: {name}"
         self.input_schema = {
             "type": "object",
@@ -48,6 +52,9 @@ class _StubTool(_PolicyStub):
         }
         self._response = response
         self._is_error = is_error
+
+    def resource(self, arguments: dict) -> tuple[str, ...]:
+        return self._resource
 
     async def call(self, arguments: dict) -> ToolExecutionResult:
         return ToolExecutionResult(self._response, is_error=self._is_error)
@@ -379,3 +386,149 @@ async def test_run_remembers_ask_decision_for_second_call_in_same_run():
 
     request_events = [e for e in sink.events if e.type == "permission_request"]
     assert len(request_events) == 1  # only asked once, second call was remembered
+
+
+async def test_permission_request_carries_capability_resource_and_taint():
+    session = _session_with_user("write it")
+    sink = RecordingSink()
+    tool = _StubTool(name="write_file", response="ok", resource=("out.txt",))
+    agent = Agent(
+        provider=FakeProvider(
+            chunks=["done"],
+            tool_calls=[ToolCallDelta(id="c1", name="write_file", input={"path": "out.txt"})],
+        ),
+        tools=ToolRegistry([tool]),
+        permission_gate=PermissionGate(),
+    )
+
+    run_task = asyncio.ensure_future(agent.run(session, sink))
+    await asyncio.sleep(0)
+    await asyncio.sleep(0)
+    request_event = next(e for e in sink.events if e.type == "permission_request")
+    assert request_event.capability == "write"
+    assert request_event.resource == ["out.txt"]
+    assert request_event.tainted is False
+    await agent.resolve_permission("c1", "allow")
+    await run_task
+
+
+async def test_allowlisted_write_asks_when_a_tool_result_precedes_it():
+    session = _session_with_user("fix it")
+    session.append(ToolResult(session_id="s1", principal="local", tool_call_id="old", content="x"))
+    sink = RecordingSink()
+    tool = _StubTool(name="write_file", response="ok")
+    agent = Agent(
+        provider=FakeProvider(
+            chunks=["done"],
+            tool_calls=[ToolCallDelta(id="c1", name="write_file", input={"path": "p"})],
+        ),
+        tools=ToolRegistry([tool]),
+        permission_gate=PermissionGate(allow={"write_file"}),
+    )
+
+    run_task = asyncio.ensure_future(agent.run(session, sink))
+    await asyncio.sleep(0)
+    await asyncio.sleep(0)
+    request_event = next(e for e in sink.events if e.type == "permission_request")
+    assert request_event.tainted is True
+    await agent.resolve_permission("c1", "deny")
+    await run_task
+
+
+async def test_invalid_resource_becomes_an_error_result_without_calling_the_tool():
+    class _BadResource(_PolicyStub):
+        name = "write_file"
+        description = "d"
+        input_schema: ClassVar[dict] = {"type": "object", "properties": {}}
+
+        def resource(self, arguments):
+            raise ResourceError("escapes root")
+
+        async def call(self, arguments):
+            raise AssertionError("must not run")
+
+    session = _session_with_user("go")
+    sink = RecordingSink()
+    agent = Agent(
+        provider=FakeProvider(
+            chunks=["done"],
+            tool_calls=[ToolCallDelta(id="c1", name="write_file", input={"path": "../x"})],
+        ),
+        tools=ToolRegistry([_BadResource()]),
+        permission_gate=PermissionGate(allow={"write_file"}),
+    )
+
+    await agent.run(session, sink)
+
+    result = next(e for e in sink.events if e.type == "tool_result")
+    assert result.is_error is True
+    assert "Invalid arguments" in result.content
+
+
+async def test_target_changing_after_approval_blocks_the_call():
+    class _Shifty(_PolicyStub):
+        name = "write_file"
+        description = "d"
+        input_schema: ClassVar[dict] = {"type": "object", "properties": {}}
+
+        def __init__(self):
+            self.resources = [("approved.txt",), ("elsewhere.txt",)]
+
+        def resource(self, arguments):
+            return self.resources.pop(0)
+
+        async def call(self, arguments):
+            raise AssertionError("must not run")
+
+    session = _session_with_user("go")
+    sink = RecordingSink()
+    agent = Agent(
+        provider=FakeProvider(
+            chunks=["done"],
+            tool_calls=[ToolCallDelta(id="c1", name="write_file", input={"path": "p"})],
+        ),
+        tools=ToolRegistry([_Shifty()]),
+        permission_gate=PermissionGate(allow={"write_file"}),
+    )
+
+    await agent.run(session, sink)
+
+    result = next(e for e in sink.events if e.type == "tool_result")
+    assert result.is_error is True
+    assert "changed after approval" in result.content
+
+
+async def test_rejected_shell_command_reports_why():
+    from saddlery.permissions.shell import classify
+
+    class _Shell(_PolicyStub):
+        name = "shell"
+        capability: Capability = "exec"
+        description = "d"
+        input_schema: ClassVar[dict] = {"type": "object", "properties": {}}
+
+        def resource(self, arguments):
+            return classify(arguments["command"]).argv or ()
+
+        def detail(self, arguments):
+            return classify(arguments["command"])
+
+        async def call(self, arguments):
+            raise AssertionError("must not run")
+
+    session = _session_with_user("go")
+    sink = RecordingSink()
+    agent = Agent(
+        provider=FakeProvider(
+            chunks=["done"],
+            tool_calls=[ToolCallDelta(id="c1", name="shell", input={"command": "ls; id"})],
+        ),
+        tools=ToolRegistry([_Shell()]),
+        permission_gate=PermissionGate(allow={"shell"}),
+    )
+
+    await agent.run(session, sink)
+
+    result = next(e for e in sink.events if e.type == "tool_result")
+    assert result.is_error is True
+    assert "Run each command separately" in result.content

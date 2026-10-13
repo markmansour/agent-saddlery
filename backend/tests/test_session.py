@@ -91,3 +91,24 @@ async def test_store_get_or_create_returns_same_session():
     assert a is b
     assert a.session_id == "s1"
     assert a.principal == "local"
+
+
+def test_is_tainted_false_with_no_tool_results():
+    s = Session(session_id="s1", principal="local")
+    s.append(UserMessage(session_id="s1", principal="local", content="hi"))
+    assert s.is_tainted() is False
+
+
+def test_is_tainted_true_after_a_tool_result_since_the_last_user_message():
+    s = Session(session_id="s1", principal="local")
+    s.append(UserMessage(session_id="s1", principal="local", content="read it"))
+    s.append(ToolResult(session_id="s1", principal="local", tool_call_id="c1", content="x"))
+    assert s.is_tainted() is True
+
+
+def test_is_tainted_resets_on_a_new_user_message():
+    s = Session(session_id="s1", principal="local")
+    s.append(UserMessage(session_id="s1", principal="local", content="read it"))
+    s.append(ToolResult(session_id="s1", principal="local", tool_call_id="c1", content="x"))
+    s.append(UserMessage(session_id="s1", principal="local", content="thanks"))
+    assert s.is_tainted() is False

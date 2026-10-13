@@ -20,13 +20,21 @@ from saddlery.events import (
 )
 from saddlery.llm.base import TextDelta, ToolCallDelta
 from saddlery.messages import Message
+from saddlery.permissions.gate import PolicyRequest
+from saddlery.permissions.shell import ShellCommand
+from saddlery.tools.base import ResourceError
 from saddlery.tools.registry import ToolRegistry
 
 if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
+
     from saddlery.llm.base import LLMProvider
     from saddlery.permissions.gate import PermissionGate
     from saddlery.session import Session
+    from saddlery.tools.base import Tool
     from saddlery.transport.base import EventSink
+
+    Emit = Callable[[Event], Awaitable[None]]
 
 DEFAULT_MODEL = "claude-haiku-4-5"
 
@@ -105,43 +113,9 @@ class Agent:
                     if tool is None:
                         result_content, is_error = f"Error: unknown tool '{call.name}'", True
                     else:
-                        decision: str = "allow"
-                        if self.permission_gate is not None:
-                            decision = await self.permission_gate.check(
-                                call.name, call.input, principal
-                            )
-                            if decision == "ask":
-                                await emit(
-                                    PermissionRequest(
-                                        session_id=sid,
-                                        principal=principal,
-                                        tool_call_id=call.id,
-                                        tool_name=call.name,
-                                        arguments=call.input,
-                                    )
-                                )
-                                decision_future: asyncio.Future = (
-                                    asyncio.get_running_loop().create_future()
-                                )
-                                self._pending_decisions[call.id] = decision_future
-                                try:
-                                    decision = await decision_future
-                                finally:
-                                    del self._pending_decisions[call.id]
-                                await emit(
-                                    PermissionDecision(
-                                        session_id=sid,
-                                        principal=principal,
-                                        tool_call_id=call.id,
-                                        decision=decision,
-                                    )
-                                )
-                                self.permission_gate.remember(call.name, principal, decision)
-                        if decision == "deny":
-                            result_content, is_error = "Permission denied", True
-                        else:
-                            outcome = await tool.call(call.input)
-                            result_content, is_error = outcome.content, outcome.is_error
+                        result_content, is_error = await self._run_tool_call(
+                            call, tool, session, emit
+                        )
                     await emit(
                         ToolResult(
                             session_id=sid,
@@ -171,6 +145,78 @@ class Agent:
             )
         finally:
             await emit(RunFinished(session_id=sid, principal=principal))
+
+    async def _run_tool_call(
+        self, call: ToolCallDelta, tool: Tool, session: Session, emit: Emit
+    ) -> tuple[str, bool]:
+        """Gate (when configured) and execute one tool call. Returns (content, is_error)."""
+        gate = self.permission_gate
+        if gate is not None:
+            try:
+                request = PolicyRequest(
+                    tool_name=call.name,
+                    arguments=call.input,
+                    principal=session.principal,
+                    capability=tool.capability,
+                    resource=tool.resource(call.input),
+                    tainted=session.is_tainted(),
+                    detail=tool.detail(call.input),
+                )
+            except ResourceError as exc:
+                return f"Invalid arguments: {exc}", True
+            decision = await gate.check(request)
+            if decision == "ask":
+                decision = await self._ask(call, request, session, emit)
+                gate.remember(request, decision)
+            if decision == "deny":
+                return self._denial_message(request), True
+            try:
+                changed = tool.resource(call.input) != request.resource
+            except ResourceError:
+                changed = True
+            if changed:
+                return "Permission denied: the target changed after approval.", True
+        outcome = await tool.call(call.input)
+        return outcome.content, outcome.is_error
+
+    async def _ask(
+        self, call: ToolCallDelta, request: PolicyRequest, session: Session, emit: Emit
+    ) -> Literal["allow", "deny"]:
+        """Emit a PermissionRequest, suspend until resolve_permission(), emit the decision."""
+        sid, principal = session.session_id, session.principal
+        await emit(
+            PermissionRequest(
+                session_id=sid,
+                principal=principal,
+                tool_call_id=call.id,
+                tool_name=call.name,
+                arguments=call.input,
+                capability=request.capability,
+                resource=list(request.resource),
+                tainted=request.tainted,
+            )
+        )
+        future: asyncio.Future = asyncio.get_running_loop().create_future()
+        self._pending_decisions[call.id] = future
+        try:
+            decision = await future
+        finally:
+            del self._pending_decisions[call.id]
+        await emit(
+            PermissionDecision(
+                session_id=sid,
+                principal=principal,
+                tool_call_id=call.id,
+                decision=decision,
+            )
+        )
+        return decision
+
+    @staticmethod
+    def _denial_message(request: PolicyRequest) -> str:
+        if isinstance(request.detail, ShellCommand) and request.detail.kind == "rejected":
+            return "Compound commands are not supported. Run each command separately."
+        return "Permission denied"
 
     async def resolve_permission(
         self, tool_call_id: str, decision: Literal["allow", "deny"]

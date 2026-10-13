@@ -18,7 +18,7 @@ from saddlery.events import UserMessage
 from saddlery.llm.anthropic_provider import AnthropicProvider
 from saddlery.llm.mock_provider import MockLMProvider
 from saddlery.logging import configure_logging
-from saddlery.permissions.config import load_permission_config
+from saddlery.permissions.config import ConfigError, load_permission_config
 from saddlery.permissions.gate import PermissionGate
 from saddlery.session import Session
 from saddlery.tools.read_file import FileReadTool
@@ -43,16 +43,16 @@ def build_agent() -> Agent:
             reason="--test-mode flag set" if test_mode_flag else "ANTHROPIC_API_KEY not set",
         )
     provider = MockLMProvider() if use_mock else AnthropicProvider()
-    allow, deny = load_permission_config()
-    gate = PermissionGate(allow=allow, deny=deny)
     # The TUI runs this process from backend/ (so uv finds pyproject.toml), so the cwd is not
-    # the project. SADDLERY_ROOT names the directory the file tools may touch.
-    root = Path(os.environ["SADDLERY_ROOT"]) if os.environ.get("SADDLERY_ROOT") else None
-    return Agent(
-        provider=provider,
-        tools=ToolRegistry([FileReadTool(root), FileWriteTool(root)]),
-        permission_gate=gate,
+    # the project. SADDLERY_ROOT names the directory the file tools may touch and where the
+    # permission rules live.
+    root = Path(os.environ["SADDLERY_ROOT"]) if os.environ.get("SADDLERY_ROOT") else Path.cwd()
+    tools = ToolRegistry([FileReadTool(root), FileWriteTool(root)])
+    config = load_permission_config(
+        root / ".saddlery" / "permissions.json", known_tools=tools.names()
     )
+    gate = PermissionGate(allow=config.allow, deny=config.deny)
+    return Agent(provider=provider, tools=tools, permission_gate=gate)
 
 
 def _use_json_input() -> bool:
@@ -67,7 +67,11 @@ async def _amain() -> int:
     principal = "local"
     session = Session(session_id=uuid.uuid4().hex, principal=principal)
 
-    agent = build_agent()
+    try:
+        agent = build_agent()
+    except ConfigError as exc:
+        print(f"permissions config error: {exc}", file=sys.stderr)
+        return 2
     sink = LoggingSink(CliSink())
 
     # Emit session started event
