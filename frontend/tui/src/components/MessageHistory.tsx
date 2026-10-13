@@ -3,7 +3,7 @@ import { Text, Box } from "ink";
 
 interface Message {
   id: string;
-  role: "user" | "assistant" | "tool";
+  role: "user" | "assistant" | "tool" | "error";
   content: string;
   toolName?: string;
   isError?: boolean;
@@ -26,7 +26,9 @@ const MessageHistory = ({ messages }: MessageHistoryProps) => {
             <Text
               bold
               color={
-                msg.role === "tool"
+                msg.role === "error"
+                  ? "red"
+                  : msg.role === "tool"
                   ? msg.isError
                     ? "red"
                     : "yellow"
@@ -37,11 +39,13 @@ const MessageHistory = ({ messages }: MessageHistoryProps) => {
                 ? "You"
                 : msg.role === "tool"
                 ? "Tool"
+                : msg.role === "error"
+                ? "Error"
                 : "Assistant"}
               :
             </Text>
           </Box>
-          <Text>{msg.content}</Text>
+          <Text color={msg.role === "error" ? "red" : undefined}>{msg.content}</Text>
         </Box>
       ))}
     </Box>

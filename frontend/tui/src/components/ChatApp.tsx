@@ -4,12 +4,13 @@ import MessageHistory from "./MessageHistory.js";
 import InputBox from "./InputBox.js";
 import StatusLine from "./StatusLine.js";
 import { CoreSubprocess } from "../core/subprocess.js";
+import { notConnectedMessage } from "./notConnected.js";
 import { formatToolCall } from "./toolCallLabel.js";
 import { formatPermissionPrompt, type PermissionRequestInfo } from "./permissionPrompt.js";
 
 interface Message {
   id: string;
-  role: "user" | "assistant" | "tool";
+  role: "user" | "assistant" | "tool" | "error";
   content: string;
   toolName?: string;
   isError?: boolean;
@@ -23,6 +24,7 @@ const ChatApp = () => {
   const [pendingPermission, setPendingPermission] = useState<PermissionRequestInfo | null>(null);
   const coreRef = useRef<CoreSubprocess | null>(null);
   const pendingMessageIdRef = useRef<string | null>(null);
+  const startupFailureRef = useRef<string | undefined>(undefined);
 
   // Initialize core subprocess
   useEffect(() => {
@@ -99,7 +101,12 @@ const ChatApp = () => {
         });
       } catch (err) {
         const msg = (err as Error).message || "Unknown error";
-        setStatus(`Core error: ${msg.slice(0, 30)}`);
+        startupFailureRef.current = msg;
+        setStatus("Core offline");
+        setMessages((prev) => [
+          ...prev,
+          { id: `startup-error-${Date.now()}`, role: "error", content: msg },
+        ]);
       }
     };
 
@@ -133,7 +140,19 @@ const ChatApp = () => {
       return;
     }
 
-    if (isRunning || !coreRef.current) return;
+    if (isRunning) return;
+
+    if (!coreRef.current) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `not-connected-${Date.now()}`,
+          role: "error",
+          content: notConnectedMessage(startupFailureRef.current),
+        },
+      ]);
+      return;
+    }
 
     // Add user message to history
     const userMsg: Message = {
