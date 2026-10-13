@@ -29,9 +29,34 @@ export function buildCoreEnv(
   };
 }
 
+const MAX_STDERR_LINES = 5;
+const MAX_REASON_CHARS = 300;
+
+/** Message for a core that exited; includes the core's last non-JSON stderr lines as the reason. */
+export function describeCoreExit(code: number | null, stderrLines: string[]): string {
+  const base = `Core exited with code ${code}`;
+  if (stderrLines.length === 0) return base;
+  const reason = stderrLines.join(" | ");
+  const capped =
+    reason.length > MAX_REASON_CHARS ? `${reason.slice(0, MAX_REASON_CHARS)}…` : reason;
+  return `${base}: ${capped}`;
+}
+
+export interface CoreSubprocessOptions {
+  /** Shell command that starts the core; defaults to `uv run` in backend/. */
+  command?: string;
+}
+
 export class CoreSubprocess extends EventEmitter {
   private process: ChildProcess | null = null;
   private sessionId: string = "";
+  private stderrTail: string[] = [];
+  private readonly commandOverride?: string;
+
+  constructor(options: CoreSubprocessOptions = {}) {
+    super();
+    this.commandOverride = options.command;
+  }
 
   async start(): Promise<void> {
     // Find backend directory: either as sibling (if in frontend/tui) or current dir (if already there)
@@ -45,19 +70,16 @@ export class CoreSubprocess extends EventEmitter {
     const env = buildCoreEnv(process.env, process.cwd());
 
     appendFileSync("tui.log", `[subprocess] spawning core at ${backendPath}\n`);
-    appendFileSync(
-      "tui.log",
-      `[subprocess] command: cd '${backendPath}' && uv run python -m saddlery.cli.main --json-input\n`
-    );
+    const command =
+      this.commandOverride ??
+      `cd '${backendPath}' && uv run python -m saddlery.cli.main --json-input`;
+    appendFileSync("tui.log", `[subprocess] command: ${command}\n`);
 
-    this.process = spawn(
-      "sh",
-      ["-c", `cd '${backendPath}' && uv run python -m saddlery.cli.main --json-input`],
-      {
-        env,
-        stdio: ["pipe", "pipe", "pipe"],
-      }
-    );
+    this.stderrTail = [];
+    this.process = spawn("sh", ["-c", command], {
+      env,
+      stdio: ["pipe", "pipe", "pipe"],
+    });
 
     appendFileSync("tui.log", `[subprocess] spawn returned, checking streams\n`);
 
@@ -105,6 +127,11 @@ export class CoreSubprocess extends EventEmitter {
 
       stderrReadline.on("line", (line: string) => {
         appendFileSync("core.log", `${line}\n`);
+        const trimmed = line.trim();
+        if (trimmed !== "" && !trimmed.startsWith("{")) {
+          this.stderrTail.push(trimmed);
+          if (this.stderrTail.length > MAX_STDERR_LINES) this.stderrTail.shift();
+        }
         // Don't log stderr to tui.log — it's too verbose. Core logs go to core.log
       });
     }
@@ -117,8 +144,12 @@ export class CoreSubprocess extends EventEmitter {
 
     this.process.on("exit", (code) => {
       appendFileSync("tui.log", `[exit] process exited with code ${code}\n`);
+    });
+
+    // "close" fires after stdio streams end, so every stderr line has been read by now.
+    this.process.on("close", (code) => {
       if (code !== 0 && code !== null) {
-        this.emit("error", new Error(`Core process exited with code ${code}`));
+        this.emit("error", new Error(describeCoreExit(code, this.stderrTail)));
       }
       this.emit("closed", code);
     });
