@@ -54,3 +54,14 @@ def test_path_resource_rejects_bad_arguments(tmp_path, arguments):
 
 def test_fold_is_idempotent():
     assert fold(fold("Straße")) == fold("Straße")
+
+
+def test_path_with_nul_byte_is_a_resource_error(tmp_path):
+    with pytest.raises(ResourceError):
+        path_resource(tmp_path, {"path": "a\x00b"})
+
+
+def test_symlink_loop_is_a_resource_error(tmp_path):
+    (tmp_path / "loop").symlink_to(tmp_path / "loop")
+    with pytest.raises(ResourceError):
+        path_resource(tmp_path, {"path": "loop/x"})

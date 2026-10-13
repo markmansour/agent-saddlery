@@ -23,9 +23,14 @@ def path_resource(root: Path, arguments: object) -> tuple[str, ...]:
     path_str = arguments.get("path")
     if not isinstance(path_str, str) or not path_str:
         raise ResourceError("path must be a non-empty string")
-    target = (root / path_str).resolve()
     try:
-        relative = target.relative_to(root.resolve())
+        target = (root / path_str).resolve()
+        resolved_root = root.resolve()
+    except (ValueError, OSError, RuntimeError) as exc:
+        # NUL bytes (ValueError), symlink loops (RuntimeError/OSError) and the like.
+        raise ResourceError(f"Invalid path {path_str!r}: {exc}") from None
+    try:
+        relative = target.relative_to(resolved_root)
     except ValueError:
         raise ResourceError(f"Path {path_str} escapes root directory.") from None
     return tuple(fold(part) for part in relative.parts)

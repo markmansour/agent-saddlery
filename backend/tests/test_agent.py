@@ -532,3 +532,57 @@ async def test_rejected_shell_command_reports_why():
     result = next(e for e in sink.events if e.type == "tool_result")
     assert result.is_error is True
     assert "Run each command separately" in result.content
+
+
+async def test_unexpected_gate_decision_does_not_run_the_tool():
+    class _OddGate(PermissionGate):
+        async def check(self, request):  # type: ignore[override]
+            return "Allow"
+
+    class _Raising(_PolicyStub):
+        name = "write_file"
+        description = "d"
+        input_schema: ClassVar[dict] = {"type": "object", "properties": {}}
+
+        async def call(self, arguments):
+            raise AssertionError("must not run")
+
+    session = _session_with_user("go")
+    sink = RecordingSink()
+    agent = Agent(
+        provider=FakeProvider(
+            chunks=["done"],
+            tool_calls=[ToolCallDelta(id="c1", name="write_file", input={"path": "p"})],
+        ),
+        tools=ToolRegistry([_Raising()]),
+        permission_gate=_OddGate(),
+    )
+
+    await agent.run(session, sink)
+
+    result = next(e for e in sink.events if e.type == "tool_result")
+    assert result.is_error is True
+    assert "denied" in result.content.lower()
+
+
+async def test_nul_byte_path_becomes_an_error_result_not_an_orphan_tool_call(tmp_path):
+    from saddlery.tools.write_file import FileWriteTool
+
+    session = _session_with_user("go")
+    sink = RecordingSink()
+    agent = Agent(
+        provider=FakeProvider(
+            chunks=["done"],
+            tool_calls=[ToolCallDelta(id="c1", name="write_file", input={"path": "a\x00b"})],
+        ),
+        tools=ToolRegistry([FileWriteTool(tmp_path)]),
+        permission_gate=PermissionGate(allow={"write_file"}),
+    )
+
+    await agent.run(session, sink)
+
+    assert not any(e.type == "error" for e in sink.events)
+    result = next(e for e in sink.events if e.type == "tool_result")
+    assert result.tool_call_id == "c1"
+    assert result.is_error is True
+    assert "Invalid arguments" in result.content

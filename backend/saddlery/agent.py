@@ -168,7 +168,7 @@ class Agent:
             if decision == "ask":
                 decision = await self._ask(call, request, session, emit)
                 gate.remember(request, decision)
-            if decision == "deny":
+            if decision != "allow":
                 return self._denial_message(request), True
             try:
                 changed = tool.resource(call.input) != request.resource

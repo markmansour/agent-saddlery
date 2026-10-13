@@ -46,9 +46,11 @@ def load_permission_config(
     if not path.exists():
         return PermissionConfig()
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
+        data = json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=_no_duplicates)
     except json.JSONDecodeError as exc:
         raise ConfigError(f"{path}: invalid JSON: {exc}") from exc
+    except ConfigError as exc:
+        raise ConfigError(f"{path}: {exc}") from None
     if not isinstance(data, dict):
         raise ConfigError(f"{path}: top level must be an object")
     unknown = set(data) - _TOP_LEVEL_KEYS
@@ -58,6 +60,16 @@ def load_permission_config(
         allow=_parse_rules(data.get("allow", []), "allow", path, known_tools),
         deny=_parse_rules(data.get("deny", []), "deny", path, known_tools),
     )
+
+
+def _no_duplicates(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    """json object hook: a duplicate key would silently drop rules, so reject it."""
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ConfigError(f"duplicate key {key!r}")
+        result[key] = value
+    return result
 
 
 def _parse_rules(

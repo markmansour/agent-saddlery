@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from saddlery.permissions.gate import HookResult, PermissionGate, PolicyRequest
+from typing import cast
+
+from saddlery.permissions.gate import Hook, HookResult, PermissionGate, PolicyRequest
 from saddlery.permissions.rules import Rule
 from saddlery.permissions.shell import classify
 
@@ -255,3 +257,16 @@ async def test_deny_rule_sees_inside_bash_dash_c():
 async def test_deny_rule_does_not_block_unrelated_shell_commands():
     gate = PermissionGate(deny=[Rule("shell", ("rm", "-rf"))])
     assert await gate.check(shell_req("ls -la")) == "ask"
+
+
+# --- out-of-contract hook results -----------------------------------------------------
+
+
+async def test_hook_returning_none_fails_closed():
+    gate = PermissionGate(allow={"write_file"}, hooks=[cast("Hook", lambda r: None)])
+    assert await gate.check(req()) == "deny"
+
+
+async def test_hook_returning_a_typo_fails_closed():
+    gate = PermissionGate(allow={"write_file"}, hooks=[cast("Hook", lambda r: "Deny")])
+    assert await gate.check(req()) == "deny"

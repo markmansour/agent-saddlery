@@ -98,3 +98,15 @@ def test_two_token_executor_rule_is_fine(tmp_path):
 def test_executor_deny_rule_is_fine(tmp_path):
     data = {"deny": [{"tool": "shell", "match": ["bash"]}]}
     assert load_permission_config(_write(tmp_path, data)).deny == (Rule("shell", ("bash",)),)
+
+
+def test_duplicate_top_level_key_fails_startup(tmp_path):
+    raw = '{"deny":[{"tool":"write_file","match":["docs"]}],"deny":[]}'
+    with pytest.raises(ConfigError, match="duplicate"):
+        load_permission_config(_write(tmp_path, raw))
+
+
+def test_duplicate_nested_key_fails_startup(tmp_path):
+    raw = '{"allow":[{"tool":"shell","match":["ls"],"tool":"write_file"}]}'
+    with pytest.raises(ConfigError, match="duplicate"):
+        load_permission_config(_write(tmp_path, raw))

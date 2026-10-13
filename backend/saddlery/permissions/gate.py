@@ -39,6 +39,7 @@ class PolicyRequest:
 Hook = Callable[[PolicyRequest], HookResult]
 
 _REMEMBERED_CLASSES = frozenset({"write"})
+_HOOK_DECISIONS = frozenset({"allow", "deny", "ask"})
 
 
 class PermissionGate:
@@ -65,8 +66,10 @@ class PermissionGate:
 
         for hook in self._hooks:
             result = hook(request)
-            if result != "pass":
-                return result
+            if result == "pass":
+                continue
+            # An out-of-contract result (None, a typo) fails closed.
+            return result if result in _HOOK_DECISIONS else "deny"
 
         remembered = self._remembered.get(self._key(request))
         if remembered is not None:
