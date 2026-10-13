@@ -45,6 +45,9 @@ describe("CoreSubprocess", () => {
         tool_call_id: "call-1",
         tool_name: "write_file",
         arguments: { path: "out.txt" },
+        capability: "write",
+        resource: ["out.txt"],
+        tainted: true,
       },
     });
 
@@ -52,6 +55,9 @@ describe("CoreSubprocess", () => {
       toolCallId: "call-1",
       toolName: "write_file",
       arguments: { path: "out.txt" },
+      capability: "write",
+      resource: ["out.txt"],
+      tainted: true,
     });
   });
 

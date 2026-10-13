@@ -4,6 +4,7 @@ import MessageHistory from "./MessageHistory.js";
 import InputBox from "./InputBox.js";
 import StatusLine from "./StatusLine.js";
 import { CoreSubprocess } from "../core/subprocess.js";
+import { formatPermissionPrompt, type PermissionRequestInfo } from "./permissionPrompt.js";
 
 interface Message {
   id: string;
@@ -18,11 +19,7 @@ const ChatApp = () => {
   const [status, setStatus] = useState("Initializing...");
   const [sessionId, setSessionId] = useState<string>("");
   const [isRunning, setIsRunning] = useState(false);
-  const [pendingPermission, setPendingPermission] = useState<{
-    toolCallId: string;
-    toolName: string;
-    arguments: Record<string, unknown>;
-  } | null>(null);
+  const [pendingPermission, setPendingPermission] = useState<PermissionRequestInfo | null>(null);
   const coreRef = useRef<CoreSubprocess | null>(null);
   const pendingMessageIdRef = useRef<string | null>(null);
 
@@ -78,7 +75,7 @@ const ChatApp = () => {
 
         core.on(
           "permission_request",
-          (request: { toolCallId: string; toolName: string; arguments: Record<string, unknown> }) => {
+          (request: PermissionRequestInfo) => {
             setPendingPermission(request);
           }
         );
@@ -174,8 +171,7 @@ const ChatApp = () => {
       {pendingPermission && (
         <Box marginBottom={1}>
           <Text color="yellow" bold>
-            Allow {pendingPermission.toolName}(
-            {JSON.stringify(pendingPermission.arguments)})? [y/n]
+            {formatPermissionPrompt(pendingPermission)}
           </Text>
         </Box>
       )}

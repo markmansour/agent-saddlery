@@ -217,6 +217,9 @@ export class CoreSubprocess extends EventEmitter {
       const toolCallId = eventData?.tool_call_id as string | undefined;
       const toolName = eventData?.tool_name as string | undefined;
       const args = eventData?.arguments as Record<string, unknown> | undefined;
+      const capability = eventData?.capability as string | undefined;
+      const resource = eventData?.resource as string[] | undefined;
+      const tainted = eventData?.tainted as boolean | undefined;
       const ts = new Date().toISOString();
       appendFileSync(
         "tui.log",
@@ -227,6 +230,9 @@ export class CoreSubprocess extends EventEmitter {
           toolCallId,
           toolName,
           arguments: args ?? {},
+          capability: capability ?? "write",
+          resource: resource ?? [],
+          tainted: tainted ?? false,
         });
       }
     } else if (eventType === "run_finished") {
