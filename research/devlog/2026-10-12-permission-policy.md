@@ -115,14 +115,29 @@ Tasks were built by subagents, each with a separate review. The review findings:
   is [MM-210](https://linear.app/mark-mansour/issue/MM-210).
 
 ## Demo & test verification
-- **Test:** 246 backend tests pass (2 skipped) on the branch tip.
-- **Demo: pending, to be run by Mark.** The live TUI needs a TTY and an API key, so I did not run
-  it. Nothing below has been observed. The MM-212 done-check is:
-  1. Reading a file runs without a prompt.
-  2. Approving a write to `a.txt` does not approve `b.txt`.
-  3. A write allowlisted in `.saddlery/permissions.json` still prompts after a file read, with
-     "(follows untrusted content)".
-  4. A malformed permissions file stops startup with a clear message.
+- **Test:** 267 backend tests pass (2 skipped) and the TUI suite passes on the merged result.
+- **Demo.** Mark ran the live TUI (2026-10-12). The MM-212 done-check:
+  1. Reading a file runs without a prompt, and
+  2. approving a write to `a.txt` does not approve `b.txt`: Mark reported "It works in the
+     worktree" after running both on the branch. He did not itemize them.
+  3. A write allowlisted in `.saddlery/permissions.json` still prompts after a file read: **passed
+     live on `main`.** With `{"allow": ["write_file"]}`: `write "clean" to c1.txt` ran with no
+     prompt; asking to read `README.md` and write its first line to `c2.txt` showed
+     `Allow write_file: c2.txt? (follows untrusted content) [y/n]`; `write "again" to c3.txt` ran
+     with no prompt, so taint resets on a new message. I also replayed the same three messages
+     headless through `build_agent()` with a scripted model and got the same result.
+  4. A malformed permissions file stops startup with a clear message: **passed headless**
+     (`permissions config error: ...invalid JSON...`, exit code 2), **failed in the TUI.** The TUI
+     showed nothing and ignored typed input, because it truncated the status to 30 characters,
+     never surfaced the core's stderr, and dropped messages when no core was connected. The fix
+     is on branch `fix/tui-core-startup-failure` (`b9d9460`): the full reason now appears as a red
+     row and typing replies `Not connected: <reason>`. I verified it end to end against the real
+     core. Mark has not yet seen it in the live TUI.
+- **A trap worth recording.** Mark twice tested the `main` checkout before the merge and saw the
+  old behaviour: `read_file` prompted, the second write was auto-approved, and the prompt printed
+  the whole file. The logs showed it: `tui.log` recorded the core spawning in the main checkout,
+  and no `permission_request` carried a `capability` field. When a test result contradicts the
+  fix, check which build ran before debugging the code.
 
 ## Open threads
 - [MM-10](https://linear.app/mark-mansour/issue/MM-10): the shell tool. It must run with
