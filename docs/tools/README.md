@@ -13,8 +13,11 @@ class Tool(Protocol):
     name: str
     description: str
     input_schema: dict  # JSON Schema — MCP's inputSchema, snake_case on our side
+    capability: Capability  # "read" | "write" | "exec" | "network"
 
     async def call(self, arguments: dict) -> ToolExecutionResult: ...
+    def resource(self, arguments: dict) -> tuple[str, ...]: ...  # raises ResourceError
+    def detail(self, arguments: dict) -> object | None: ...  # optional structured parse
 ```
 
 `ToolExecutionResult` is `{content: str, is_error: bool}`. **`call()` never raises** — any
@@ -55,6 +58,9 @@ name for lookup (`.get(name)`) and exports Anthropic-shaped specs (`.specs()` �
 - Directories are rejected (`is_dir()` check) rather than raising `IsADirectoryError`.
 - Non-UTF-8 files return an error result (`UnicodeDecodeError` is caught, not propagated).
 
+Capability: `read`. Its resource is the path relative to the root. Under the gate, a bad path
+(NUL byte, symlink loop, outside the root) returns `Invalid arguments: ...` before `call()` runs.
+
 **Error results** (all `is_error=True`, never raised):
 | Condition | Message |
 |---|---|
@@ -90,6 +96,9 @@ name for lookup (`.get(name)`) and exports Anthropic-shaped specs (`.specs()` �
   `../../etc/passwd` or an absolute path outside root returns an error result, not a write.
 - Directories are rejected (`is_dir()` check) rather than raising `IsADirectoryError`.
 - Parent directories must exist — writes to nonexistent parent paths return an error.
+- The target is opened with `O_NOFOLLOW`, so a symlink at the final component is not followed.
+- Capability: `write`. Its resource is the path relative to the root. A write approval covers
+  that exact path only.
 
 **Error results** (all `is_error=True`, never raised):
 | Condition | Message |
@@ -105,56 +114,142 @@ name for lookup (`.get(name)`) and exports Anthropic-shaped specs (`.specs()` �
 
 ## Permission gate
 
-The `PermissionGate` (in [`backend/saddlery/permissions/gate.py`](../../backend/saddlery/permissions/gate.py))
-guards tool execution with a five-stage decision pipeline:
+The `PermissionGate` ([`backend/saddlery/permissions/gate.py`](../../backend/saddlery/permissions/gate.py))
+decides every tool call before it runs. The policy lives in the backend. The TUI renders prompts
+and relays the answer. Design: [`docs/specs/2026-10-12-permission-policy-design.md`](../specs/2026-10-12-permission-policy-design.md).
 
-**Evaluation order:** hooks → deny list → remembered decisions → allow list → ask
+**Evaluation order:** deny → hooks → remembered → allow → class default → ask
 
-1. **Hooks** — run registered hook functions (none by default; a hook can pass, allow, deny, or ask).
-   The first non-`pass` result decides.
-2. **Deny list** — if the tool name matches an entry in `.saddlery/permissions.json`'s `"deny"` array,
-   the tool is blocked.
-3. **Remembered decisions** — if this tool was already allowed or denied for this principal
-   earlier in the same process, reuse that decision (no re-prompting). It ranks below hooks and
-   the deny list, so an earlier approval never overrides policy. This is scoped to the
-   process's lifetime, not a persisted session — see the design spec's note on stateless-backend
-   limitations.
-4. **Allow list** — if the tool name matches an entry in `.saddlery/permissions.json`'s `"allow"` array,
-   the tool is allowed.
-5. **Ask** — if none of the above resolved the decision, emit a `PermissionRequest` event and suspend
-   `Agent.run()` awaiting `resolve_permission(tool_call_id, decision)` from the TUI.
+1. **Deny.** A static deny rule that matches blocks the call. A hook cannot override it. A shell
+   command the classifier marked `rejected` is also denied here.
+2. **Hooks.** The first result other than `pass` decides. A result outside
+   `{allow, deny, ask, pass}` (including `None`) is treated as `deny`, and `Agent` runs a tool
+   only on an explicit `allow`.
+3. **Remembered.** An earlier approval or denial of this exact `(principal, tool, resource)`.
+   It ranks below deny and hooks, so a past approval never overrides policy.
+4. **Allow.** A matching allow rule allows the call, unless the call is tainted and its class is
+   not `read`. Then it asks.
+5. **Class default.** `read` allows. `write`, `exec` and `network` ask.
+6. **Ask.** Emit a `PermissionRequest` and suspend `Agent.run()` until `resolve_permission()`
+   delivers the user's answer.
 
-**Configuration (`.saddlery/permissions.json`):**
+### Capability classes
+
+Every tool declares a `capability`. `ToolRegistry` raises at registration if it is missing or not
+one of the four values, so `build_agent()` fails at startup. There is no default class.
+
+| Class | Default | Remembered after approval | Tools |
+|---|---|---|---|
+| `read` | allow | n/a | `read_file` |
+| `write` | ask | yes, per exact resource | `write_file` |
+| `exec` | ask | never; every unmatched call asks | shell (MM-10, not built yet) |
+| `network` | ask | never | none yet |
+
+### Resources and rules
+
+A tool names what a call acts on with `resource(arguments) -> tuple[str, ...]`. For file tools it
+is the path relative to the root, split into parts. The path is resolved (symlinks followed),
+rejected if it leaves the root, then each part is NFC-normalized and case-folded. A resource
+shown in a prompt is therefore the folded form, for example `docs/a.md` for `Docs/A.md`.
+
+A rule is a tool plus an optional token prefix. Matching folds every token of the rule and the
+resource, and compares whole tokens: `["docs"]` matches `docs/a.md` but not `docs-private`.
 
 ```json
 {
-  "allow": ["read_file"],
-  "deny": []
+  "allow": [
+    "read_file",
+    {"tool": "write_file", "match": ["docs"]},
+    {"tool": "shell", "match": ["git", "status"]}
+  ],
+  "deny": [
+    {"tool": "write_file", "match": [".saddlery"]},
+    {"tool": "shell", "match": ["rm", "-rf"]}
+  ]
 }
 ```
 
-All fields are optional; omitted fields default to empty arrays. Tools not listed fall through to
-the ask stage, which is the safe default.
+- A bare tool name covers the whole tool.
+- `{"tool", "match", "unsafe_broad_allow"}` is the object form. `match` is a non-empty list of
+  non-empty strings. On `read_file` and `write_file`, tokens may not contain `/` or be `.` or `..`.
+- Remembered approvals use exact tuple equality, not prefix. Approving a write to `a.txt` does not
+  approve `b.txt`.
 
-**In the TUI:** When a tool call is pending permission (`PermissionRequest` event), the user is
-prompted to allow or deny it. The decision is sent back via `resolve_permission()`, then cached
-via `PermissionGate.remember()` so the same principal is not re-prompted for the same tool in
-this session.
+### Configuration: `<root>/.saddlery/permissions.json`
 
-**Events:**
-- `PermissionRequest` — emitted when the ask stage is reached. Fields: `tool_call_id`, `tool_name`,
-  `arguments`, `principal`.
-- `PermissionDecision` — emitted after the user resolves a pending ask request (a hook never
-  reaches this event — a non-`pass` hook result short-circuits the pipeline before the ask stage).
-  Fields: `tool_call_id`, `decision` ("allow" or "deny").
+`<root>` is `SADDLERY_ROOT` if set, otherwise the current directory. The TUI runs the core from
+`backend/`, so it sets `SADDLERY_ROOT` to the directory where you launched it. An explicit
+`SADDLERY_ROOT` wins. The file tools are confined to the same root.
+
+Loading is strict. A missing file means no rules. Anything else wrong stops startup with
+`permissions config error: ...` on stderr and exit code 2:
+
+- invalid JSON, or a top level that is not an object
+- unknown top-level keys (only `allow` and `deny`) or unknown keys in a rule
+- a duplicate JSON key (it would silently drop rules)
+- a rule that names an unregistered tool (`known_tools` is the registry's tool names)
+- an invalid `match`
+- a single-token `shell` allow rule for a broad executor (`bash`, `sh`, `zsh`, `python`,
+  `python3`, `node`, `ruby`, `perl`, `env`, `xargs`, `find`, `sudo`, `awk`, `make`, `npm`) without
+  `"unsafe_broad_allow": true`. The comparison case-folds the token. With the flag the rule loads
+  and logs a warning.
+
+Because the shell tool does not exist yet (MM-10), any rule naming `shell` currently fails
+startup as an unknown tool.
+
+### Shell commands
+
+The classifier ([`permissions/shell.py`](../../backend/saddlery/permissions/shell.py)) returns an
+immutable `ShellCommand(raw, argv, kind)`. A command is `simple` only if it is one program with
+literal arguments. Operators (`; & | < > ( )`), backticks, `$`, backslash, newlines, globs, `~`,
+`{`, a leading `NAME=value` and unparseable quoting make it `rejected`. The gate denies a
+`rejected` command before hooks, with the result "Compound commands are not supported. Run each
+command separately." There is no approve-once path. Deny rules also match the commands inside a
+`bash -c "..."` string, as a best-effort tripwire, not a boundary. Rules apply to `simple`
+commands only. The design requires the shell tool to run with `shell=False`.
+
+### Taint
+
+A call is tainted when a `ToolResult` has been appended to the session since the last
+`UserMessage` (`Session.is_tainted()`, a fold over the event log). Taint changes one step: an
+allow rule for a `write`, `exec` or `network` call asks instead of allowing. Deny, hooks and
+remembered decisions are unaffected. `SessionRunner`
+([`backend/saddlery/cli/runner.py`](../../backend/saddlery/cli/runner.py)) runs one turn at a time
+per session and queues a message that arrives mid-run, so a new user message cannot reset taint
+while a run still holds untrusted results.
+
+Limit: taint resets on each user message. It is a heuristic, not provenance. Tracked in MM-210.
+
+### Invalid arguments and changed targets
+
+`Agent` builds the `PolicyRequest` from `tool.resource()`. A `ResourceError` (non-string path, a
+path outside the root, a NUL byte, a symlink loop) becomes an `Invalid arguments: ...` error
+`ToolResult`, and the run continues. After an approval, `Agent` computes the resource again. If it
+changed, the call returns "Permission denied: the target changed after approval." `write_file`
+also opens its target with `O_NOFOLLOW`.
+
+### In the TUI
+
+The prompt is built from the event's `capability`, `resource` and `tainted`, not from raw
+arguments: `Allow write_file: docs/a.md? (follows untrusted content) [y/n]`. Shell resources join
+with spaces, path resources with `/`. A missing `tainted` flag renders as tainted.
+
+### Events
+
+- `PermissionRequest`: emitted when the ask step is reached. Fields: `tool_call_id`, `tool_name`,
+  `arguments`, `principal`, `capability`, `resource` (list of tokens), `tainted`.
+- `PermissionDecision`: emitted after the user answers a pending request. Fields: `tool_call_id`,
+  `decision` ("allow" or "deny"). A call resolved without asking (deny rule, allow rule, class
+  default) emits neither event.
 
 See [`docs/diagrams/permission-gate-sequence.md`](../diagrams/permission-gate-sequence.md) for the
-full ask round-trip sequence.
+ask round-trip.
 
 ## Adding a tool
 
-1. Implement the `Tool` protocol (see `read_file.py` as a template): validate arguments
-   defensively, catch all expected failure modes, and never let `call()` raise.
+1. Implement the `Tool` protocol (see `read_file.py` as a template): declare a `capability`
+   (`read`, `write`, `exec` or `network`) and a `resource(arguments)` that raises `ResourceError`
+   on bad input; validate arguments defensively, catch all expected failure modes, and never let `call()` raise.
 2. Register it in `ToolRegistry([...])` where the agent is built (currently in `build_agent()`).
 3. Add tests covering: the happy path, each documented error condition, and any safety boundary
    (e.g. path traversal) — see `backend/tests/test_read_file.py`.

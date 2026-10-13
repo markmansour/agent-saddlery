@@ -54,10 +54,18 @@ still beats the allow list.
 A shell command the classifier marks `rejected` (§4) is denied at the deny step, so no hook, remembered
 decision or allow rule can reach it.
 
-**Change from the code.** `b4bc59b` fixed remembered-versus-hook ordering but left hooks ahead of
-deny, so a hook returning `allow` still overrides a static deny. `PermissionGate.check()` must
-move the deny check ahead of the hooks. This reverses the "hooks first" order in the MM-9 spec.
-A test must cover a hook `allow` against a static deny.
+**Change from the code (done).** `b4bc59b` fixed remembered-versus-hook ordering but left hooks ahead of
+deny, so a hook returning `allow` still overrides a static deny. `PermissionGate.check()` now
+runs the deny check ahead of the hooks. This reverses the "hooks first" order in the MM-9 spec.
+A test covers a hook `allow` against a static deny.
+
+**As built.** Three behaviors go beyond the text above:
+
+- A hook result outside `allow`, `deny`, `ask`, `pass` is treated as `deny`, and `Agent` runs a
+  tool only on an explicit `allow`.
+- Path errors (NUL bytes, symlink loops) become `Invalid arguments` tool results, not exceptions.
+- `Agent` recomputes the resource after approval and refuses the call if it changed. `write_file`
+  opens with `O_NOFOLLOW`. The tool itself does not re-verify the approved resource.
 
 ## 2. Capability classes
 
@@ -117,7 +125,8 @@ tokens. A bare tool name means the whole tool, so existing config keeps working.
    deny rule on `["docs"]` must still match. Case-folding on a case-sensitive filesystem only makes
    deny rules broader, which fails closed.
 
-Matching is on whole tokens, so `["docs"]` does not match `docs-private`.
+Matching is on whole tokens, so `["docs"]` does not match `docs-private`. Matching folds every
+tool's tokens (not only path tokens); this only widens matching and fails closed for deny.
 
 **Race between check and use.** The resource is computed before the tool runs, so a parent
 directory could become a symlink in between. The tool therefore re-resolves immediately before
@@ -254,7 +263,7 @@ prompt and writes a `permission_decision` line. It holds no rules.
 `.saddlery/permissions.json`:
 
 - **Missing file:** defaults only, as today.
-- **Malformed file, unknown tool in a rule, or invalid rule:** startup fails with a clear message.
+- **Malformed file, duplicate JSON key, unknown tool in a rule, or invalid rule:** startup fails with a clear message.
   MM-9 treated a malformed file as empty. With deny rules that now matter, that silently drops
   them, which is fail-open.
 - **Over-broad rule** (§4): a single-token executor allow rule fails startup unless it sets
