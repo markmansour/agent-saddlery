@@ -270,3 +270,19 @@ async def test_hook_returning_none_fails_closed():
 async def test_hook_returning_a_typo_fails_closed():
     gate = PermissionGate(allow={"write_file"}, hooks=[cast("Hook", lambda r: "Deny")])
     assert await gate.check(req()) == "deny"
+
+
+async def test_shell_allow_does_not_cover_a_different_case_flag():
+    gate = PermissionGate(allow=[Rule("shell", ("git", "branch", "-d"))])
+    assert await gate.check(shell_req("git branch -d main")) == "allow"
+    assert await gate.check(shell_req("git branch -D main")) == "ask"
+
+
+async def test_shell_deny_matches_case_variants():
+    gate = PermissionGate(deny=[Rule("shell", ("rm",))])
+    assert await gate.check(shell_req("RM -rf x")) == "deny"
+
+
+async def test_unhashable_hook_result_fails_closed():
+    gate = PermissionGate(allow={"write_file"}, hooks=[cast("Hook", lambda r: ["allow"])])
+    assert await gate.check(req()) == "deny"

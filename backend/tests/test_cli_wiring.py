@@ -158,3 +158,25 @@ async def test_amain_exits_2_and_reports_a_config_error(monkeypatch, tmp_path, c
 
     assert await cli_main._amain() == 2
     assert "permissions config error" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        '{"type": "permission_decision", "tool_call_id": "c1", "decision": "maybe"}',
+        '{"type": "permission_decision", "tool_call_id": "c1", "decision": null}',
+        '{"type": "permission_decision", "tool_call_id": "c1"}',
+        '{"type": "permission_decision", "decision": "allow"}',
+        '{"type": "permission_decision", "tool_call_id": 7, "decision": "allow"}',
+    ],
+)
+def test_parse_input_line_rejects_invalid_permission_decisions(line):
+    assert parse_input_line(line) is None
+
+
+def test_parse_input_line_accepts_deny_decision():
+    line = '{"type": "permission_decision", "tool_call_id": "c1", "decision": "deny"}'
+    assert parse_input_line(line) == (
+        "permission_decision",
+        {"tool_call_id": "c1", "decision": "deny"},
+    )

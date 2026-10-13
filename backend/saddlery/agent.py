@@ -149,35 +149,51 @@ class Agent:
     async def _run_tool_call(
         self, call: ToolCallDelta, tool: Tool, session: Session, emit: Emit
     ) -> tuple[str, bool]:
-        """Gate (when configured) and execute one tool call. Returns (content, is_error)."""
-        gate = self.permission_gate
-        if gate is not None:
+        """Gate (when configured) and execute one tool call. Returns (content, is_error).
+
+        Any exception while gating becomes an error result and the tool does not run, so a
+        ToolCall always gets its ToolResult (a tool_use without a tool_result breaks every
+        later provider turn). Cancellation is not an Exception and still propagates.
+        """
+        if self.permission_gate is not None:
             try:
-                request = PolicyRequest(
-                    tool_name=call.name,
-                    arguments=call.input,
-                    principal=session.principal,
-                    capability=tool.capability,
-                    resource=tool.resource(call.input),
-                    tainted=session.is_tainted(),
-                    detail=tool.detail(call.input),
-                )
-            except ResourceError as exc:
-                return f"Invalid arguments: {exc}", True
-            decision = await gate.check(request)
-            if decision == "ask":
-                decision = await self._ask(call, request, session, emit)
-                gate.remember(request, decision)
-            if decision != "allow":
-                return self._denial_message(request), True
-            try:
-                changed = tool.resource(call.input) != request.resource
-            except ResourceError:
-                changed = True
-            if changed:
-                return "Permission denied: the target changed after approval.", True
-        outcome = await tool.call(call.input)
+                refusal = await self._gate(call, tool, session, emit, self.permission_gate)
+            except Exception as exc:  # fail closed: the tool never runs
+                return f"Permission check failed: {type(exc).__name__}: {exc}", True
+            if refusal is not None:
+                return refusal, True
+        outcome = await tool.call(call.input)  # tools never raise from call()
         return outcome.content, outcome.is_error
+
+    async def _gate(
+        self, call: ToolCallDelta, tool: Tool, session: Session, emit: Emit, gate: PermissionGate
+    ) -> str | None:
+        """Decide one call. Returns None to run it, or the error content refusing it."""
+        try:
+            request = PolicyRequest(
+                tool_name=call.name,
+                arguments=call.input,
+                principal=session.principal,
+                capability=tool.capability,
+                resource=tool.resource(call.input),
+                tainted=session.is_tainted(),
+                detail=tool.detail(call.input),
+            )
+        except ResourceError as exc:
+            return f"Invalid arguments: {exc}"
+        decision = await gate.check(request)
+        if decision == "ask":
+            decision = await self._ask(call, request, session, emit)
+            gate.remember(request, decision)
+        if decision != "allow":
+            return self._denial_message(request)
+        try:
+            changed = tool.resource(call.input) != request.resource
+        except ResourceError:
+            changed = True
+        if changed:
+            return "Permission denied: the target changed after approval."
+        return None
 
     async def _ask(
         self, call: ToolCallDelta, request: PolicyRequest, session: Session, emit: Emit

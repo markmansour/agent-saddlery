@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any
 
 import structlog
 
-from saddlery.permissions.rules import Rule
+from saddlery.permissions.rules import PATH_TOOLS, Rule
 from saddlery.tools.paths import fold
 
 if TYPE_CHECKING:
@@ -22,8 +22,6 @@ BROAD_EXECUTORS = frozenset(
         "env", "xargs", "find", "sudo", "awk", "make", "npm",
     }
 )  # fmt: skip
-#: Tools whose rule tokens are path components.
-PATH_TOOLS = frozenset({"read_file", "write_file"})
 
 _TOP_LEVEL_KEYS = {"allow", "deny"}
 _RULE_KEYS = {"tool", "match", "unsafe_broad_allow"}
@@ -44,9 +42,17 @@ def load_permission_config(
 ) -> PermissionConfig:
     """Load rules from path. A missing file is the empty config; anything malformed raises."""
     if not path.exists():
+        if path.is_symlink():
+            raise ConfigError(f"{path}: broken symlink (its target does not exist)")
         return PermissionConfig()
     try:
-        data = json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=_no_duplicates)
+        text = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise ConfigError(f"{path}: cannot read: {exc}") from exc
+    except UnicodeDecodeError as exc:
+        raise ConfigError(f"{path}: not valid UTF-8: {exc}") from exc
+    try:
+        data = json.loads(text, object_pairs_hook=_no_duplicates)
     except json.JSONDecodeError as exc:
         raise ConfigError(f"{path}: invalid JSON: {exc}") from exc
     except ConfigError as exc:

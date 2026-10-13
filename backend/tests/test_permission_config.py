@@ -110,3 +110,35 @@ def test_duplicate_nested_key_fails_startup(tmp_path):
     raw = '{"allow":[{"tool":"shell","match":["ls"],"tool":"write_file"}]}'
     with pytest.raises(ConfigError, match="duplicate"):
         load_permission_config(_write(tmp_path, raw))
+
+
+def test_dangling_symlink_fails_startup(tmp_path):
+    link = tmp_path / "permissions.json"
+    link.symlink_to(tmp_path / "missing.json")
+    with pytest.raises(ConfigError, match="symlink"):
+        load_permission_config(link)
+
+
+def test_directory_at_path_fails_startup(tmp_path):
+    path = tmp_path / "permissions.json"
+    path.mkdir()
+    with pytest.raises(ConfigError):
+        load_permission_config(path)
+
+
+def test_non_utf8_file_fails_startup(tmp_path):
+    path = tmp_path / "permissions.json"
+    path.write_bytes(b'{"allow": ["\xff\xfe"]}')
+    with pytest.raises(ConfigError):
+        load_permission_config(path)
+
+
+def test_unreadable_file_fails_startup(tmp_path, monkeypatch):
+    path = _write(tmp_path, {"allow": []})
+
+    def _denied(self, *args, **kwargs):
+        raise PermissionError(13, "Permission denied")
+
+    monkeypatch.setattr(type(path), "read_text", _denied)
+    with pytest.raises(ConfigError, match="Permission denied"):
+        load_permission_config(path)

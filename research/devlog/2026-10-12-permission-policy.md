@@ -22,8 +22,13 @@ scoped rules over a resource, per-class memory, taint, and a strict config. The 
   Exec and network approvals are never remembered.
 - **Path resources are NFC-normalized and case-folded everywhere**, on every filesystem. On a
   case-insensitive macOS volume `Docs/a.md` reaches `docs/`, and a deny rule on `["docs"]` must
-  still match. Folding on a case-sensitive volume only broadens deny, which fails closed. The
-  build folds every tool's tokens, not only path tokens, which also only widens matching.
+  still match. Folding on a case-sensitive volume only broadens deny, which fails closed.
+- **Folding is scoped to deny rules and path-tool allow rules.** The first build folded every
+  tool's tokens on the theory that folding "only widens matching". That holds for deny and is
+  fail-open for allow: an allow on `["git", "branch", "-d"]` also allowed `-D`. Deny rules now
+  fold for every tool, path-tool allow rules fold, and every other allow rule matches
+  case-sensitively. MM-10's shell `resource()` must return the unfolded argv so the prompt shows
+  the case that will run.
 - **Compound shell commands are rejected outright.** The classifier returns an immutable
   `ShellCommand(raw, argv, kind)`. Anything that is not one program with literal arguments is
   `rejected`, denied before hooks, with no approve-once path. The shell tool will use

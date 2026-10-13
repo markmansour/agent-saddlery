@@ -69,13 +69,15 @@ class PermissionGate:
             if result == "pass":
                 continue
             # An out-of-contract result (None, a typo) fails closed.
-            return result if result in _HOOK_DECISIONS else "deny"
+            return result if isinstance(result, str) and result in _HOOK_DECISIONS else "deny"
 
         remembered = self._remembered.get(self._key(request))
         if remembered is not None:
             return remembered
 
-        if any(rule.matches(request.tool_name, request.resource) for rule in self._allow):
+        if any(
+            rule.matches(request.tool_name, request.resource, role="allow") for rule in self._allow
+        ):
             if request.tainted and request.capability != "read":
                 return "ask"
             return "allow"
@@ -95,7 +97,7 @@ class PermissionGate:
         if isinstance(request.detail, ShellCommand):
             candidates.extend(deny_candidates(request.detail))
         return any(
-            rule.matches(request.tool_name, candidate)
+            rule.matches(request.tool_name, candidate, role="deny")
             for rule in self._deny
             for candidate in candidates
         )

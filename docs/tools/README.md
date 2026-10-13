@@ -152,8 +152,12 @@ is the path relative to the root, split into parts. The path is resolved (symlin
 rejected if it leaves the root, then each part is NFC-normalized and case-folded. A resource
 shown in a prompt is therefore the folded form, for example `docs/a.md` for `Docs/A.md`.
 
-A rule is a tool plus an optional token prefix. Matching folds every token of the rule and the
-resource, and compares whole tokens: `["docs"]` matches `docs/a.md` but not `docs-private`.
+A rule is a tool plus an optional token prefix. Matching compares whole tokens: `["docs"]` matches
+`docs/a.md` but not `docs-private`. Deny rules fold (NFC plus case-fold) the rule and the resource
+for every tool, and allow rules fold for path tools (`read_file`, `write_file`). Every other allow
+rule matches case-sensitively, so an allow on `["git", "branch", "-d"]` does not allow
+`git branch -D`. A shell tool's `resource()` (MM-10) must return the unfolded argv, so the prompt
+shows the case that will run.
 
 ```json
 {

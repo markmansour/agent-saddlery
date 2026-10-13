@@ -1,6 +1,8 @@
 import asyncio
 from typing import ClassVar
 
+import pytest
+
 from saddlery.agent import Agent
 from saddlery.events import ToolResult, UserMessage
 from saddlery.llm.base import TextDelta, ToolCallDelta
@@ -586,3 +588,94 @@ async def test_nul_byte_path_becomes_an_error_result_not_an_orphan_tool_call(tmp
     assert result.tool_call_id == "c1"
     assert result.is_error is True
     assert "Invalid arguments" in result.content
+
+
+def _assert_every_tool_call_has_a_result(session):
+    calls = {e.tool_call_id for e in session.events if e.type == "tool_call"}
+    results = {e.tool_call_id for e in session.events if e.type == "tool_result"}
+    assert calls == results
+
+
+async def test_raising_hook_becomes_an_error_result_without_running_the_tool():
+    def boom(request):
+        raise RuntimeError("hook exploded")
+
+    class _Raising(_PolicyStub):
+        name = "write_file"
+        description = "d"
+        input_schema: ClassVar[dict] = {"type": "object", "properties": {}}
+
+        async def call(self, arguments):
+            raise AssertionError("must not run")
+
+    session = _session_with_user("go")
+    sink = RecordingSink()
+    agent = Agent(
+        provider=FakeProvider(
+            chunks=["done"],
+            tool_calls=[ToolCallDelta(id="c1", name="write_file", input={"path": "p"})],
+        ),
+        tools=ToolRegistry([_Raising()]),
+        permission_gate=PermissionGate(allow={"write_file"}, hooks=[boom]),
+    )
+
+    await agent.run(session, sink)
+
+    assert not any(e.type == "error" for e in sink.events)
+    result = next(e for e in sink.events if e.type == "tool_result")
+    assert result.is_error is True
+    assert result.content == "Permission check failed: RuntimeError: hook exploded"
+    _assert_every_tool_call_has_a_result(session)
+
+
+async def test_resource_raising_key_error_becomes_an_error_result():
+    class _KeyErrorResource(_PolicyStub):
+        name = "write_file"
+        description = "d"
+        input_schema: ClassVar[dict] = {"type": "object", "properties": {}}
+
+        def resource(self, arguments):
+            return (arguments["missing"],)
+
+        async def call(self, arguments):
+            raise AssertionError("must not run")
+
+    session = _session_with_user("go")
+    sink = RecordingSink()
+    agent = Agent(
+        provider=FakeProvider(
+            chunks=["done"],
+            tool_calls=[ToolCallDelta(id="c1", name="write_file", input={"path": "p"})],
+        ),
+        tools=ToolRegistry([_KeyErrorResource()]),
+        permission_gate=PermissionGate(allow={"write_file"}),
+    )
+
+    await agent.run(session, sink)
+
+    assert not any(e.type == "error" for e in sink.events)
+    result = next(e for e in sink.events if e.type == "tool_result")
+    assert result.is_error is True
+    assert result.content.startswith("Permission check failed: KeyError")
+    _assert_every_tool_call_has_a_result(session)
+
+
+async def test_cancellation_during_ask_still_propagates():
+    session = _session_with_user("go")
+    sink = RecordingSink()
+    agent = Agent(
+        provider=FakeProvider(
+            chunks=["done"],
+            tool_calls=[ToolCallDelta(id="c1", name="write_file", input={"path": "p"})],
+        ),
+        tools=ToolRegistry([_StubTool(name="write_file")]),
+        permission_gate=PermissionGate(),
+    )
+
+    run_task = asyncio.ensure_future(agent.run(session, sink))
+    await asyncio.sleep(0)
+    await asyncio.sleep(0)
+    run_task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await run_task
+    assert not any(e.type == "tool_result" for e in sink.events)

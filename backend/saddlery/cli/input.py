@@ -32,10 +32,11 @@ def parse_input_line(line: str) -> tuple[str, dict] | None:
             return None
         return ("user_message", {"content": content})
     if event_type == "permission_decision":
-        return (
-            "permission_decision",
-            {"tool_call_id": obj.get("tool_call_id"), "decision": obj.get("decision")},
-        )
+        tool_call_id, decision = obj.get("tool_call_id"), obj.get("decision")
+        # Anything but a well-formed allow/deny is ignored; the call stays suspended.
+        if not isinstance(tool_call_id, str) or decision not in ("allow", "deny"):
+            return None
+        return ("permission_decision", {"tool_call_id": tool_call_id, "decision": decision})
     return None
 
 

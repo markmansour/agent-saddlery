@@ -125,8 +125,12 @@ tokens. A bare tool name means the whole tool, so existing config keeps working.
    deny rule on `["docs"]` must still match. Case-folding on a case-sensitive filesystem only makes
    deny rules broader, which fails closed.
 
-Matching is on whole tokens, so `["docs"]` does not match `docs-private`. Matching folds every
-tool's tokens (not only path tokens); this only widens matching and fails closed for deny.
+Matching is on whole tokens, so `["docs"]` does not match `docs-private`. Folding (NFC plus
+case-fold, on both the rule and the resource) applies to deny rules for every tool and to allow
+rules for path tools (`read_file`, `write_file`). Every other allow rule matches case-sensitively.
+Folding widens a match, which fails closed for deny but would fail open for allow: an allow on
+`["git", "branch", "-d"]` must not also allow `git branch -D`. MM-10's shell `resource()` must
+therefore return the unfolded argv, so the prompt shows the case that will actually run.
 
 **Race between check and use.** The resource is computed before the tool runs, so a parent
 directory could become a symlink in between. `Agent` therefore recomputes `tool.resource()` after

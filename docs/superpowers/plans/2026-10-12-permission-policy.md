@@ -23,7 +23,7 @@
 - Remembered approvals: `write` class only, keyed `(principal, tool, exact resource tuple)`. Never for `exec` or `network`.
 - Taint: a call is tainted when a `ToolResult` exists since the last `UserMessage`. It downgrades an allow-list match for `write`/`exec`/`network` to ask. It does not affect deny, remembered decisions, hooks (they see the flag) or `read`.
 - Config: missing file → defaults; malformed file, unknown tool, invalid rule, or an unflagged single-token executor allow rule → startup fails with `ConfigError`.
-- Token matching is NFC-normalized and case-folded on both sides (plan simplification of spec §3: applied to every tool's tokens, not only paths; it only widens matching, which fails closed for deny).
+- Token matching is NFC-normalized and case-folded on both sides (plan simplification of spec §3: applied to every tool's tokens, not only paths; it only widens matching, which fails closed for deny). **Superseded:** widening fails open for allow rules; folding now applies to deny rules and path-tool allow rules only (spec §3).
 - **Checkpoint rule.** Tasks 4, 5, 6 and 7 change APIs that `cli/main.py` and `test_cli_wiring.py` still use, so ty and part of the suite are intentionally red between them. Do **not** commit in Tasks 4, 5 or 6: run only the test files each task names, then commit all four tasks' files together at the end of Task 7, when the full suite and pre-commit are green. Tasks 1, 2 and 3 commit on their own.
 - The shell tool itself (MM-10) is **out of scope**. This plan builds the classifier and gate support it will use.
 
