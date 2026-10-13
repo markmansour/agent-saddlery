@@ -61,6 +61,29 @@ describe("CoreSubprocess", () => {
     });
   });
 
+  it.each([
+    ["missing", undefined],
+    ["a non-boolean string", "false"],
+  ])("treats a permission_request with tainted %s as tainted", (_label, value) => {
+    const handler = vi.fn();
+    core.on("permission_request", handler);
+    const eventData: Record<string, unknown> = {
+      tool_call_id: "call-2",
+      tool_name: "write_file",
+      arguments: {},
+      capability: "write",
+      resource: ["out.txt"],
+    };
+    if (value !== undefined) eventData.tainted = value;
+
+    (core as unknown as { handleEvent: (e: unknown) => void }).handleEvent({
+      event_type: "permission_request",
+      event_data: eventData,
+    });
+
+    expect(handler).toHaveBeenCalledWith(expect.objectContaining({ tainted: true }));
+  });
+
   it("sendPermissionDecision writes a permission_decision JSON line to stdin", () => {
     const writeSpy = vi.fn();
     (core as unknown as { process: { stdin: { write: typeof writeSpy }; kill: () => void } }).process = {

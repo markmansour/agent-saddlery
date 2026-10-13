@@ -232,7 +232,7 @@ export class CoreSubprocess extends EventEmitter {
           arguments: args ?? {},
           capability: capability ?? "write",
           resource: resource ?? [],
-          tainted: tainted ?? false,
+          tainted: tainted !== false,
         });
       }
     } else if (eventType === "run_finished") {
