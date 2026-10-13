@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from saddlery.tools.base import CAPABILITIES
+
 if TYPE_CHECKING:
     from saddlery.tools.base import Tool
 
@@ -12,6 +14,13 @@ class ToolRegistry:
     """Registry for tools, supporting lookup and schema export."""
 
     def __init__(self, tools: list[Tool]) -> None:
+        for tool in tools:
+            capability = getattr(tool, "capability", None)
+            if capability not in CAPABILITIES:
+                raise ValueError(
+                    f"Tool {tool.name!r} must declare a capability in "
+                    f"{sorted(CAPABILITIES)}, got {capability!r}"
+                )
         self._tools = {tool.name: tool for tool in tools}
 
     def get(self, name: str) -> Tool | None:

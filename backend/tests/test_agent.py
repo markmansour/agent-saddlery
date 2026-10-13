@@ -7,7 +7,7 @@ from saddlery.llm.base import TextDelta, ToolCallDelta
 from saddlery.llm.fake import FakeProvider
 from saddlery.permissions.gate import PermissionGate
 from saddlery.session import Session
-from saddlery.tools.base import ToolExecutionResult
+from saddlery.tools.base import Capability, ToolExecutionResult
 from saddlery.tools.registry import ToolRegistry
 from saddlery.transport.recording import RecordingSink
 
@@ -18,7 +18,19 @@ def _session_with_user(text: str) -> Session:
     return s
 
 
-class _StubTool:
+class _PolicyStub:
+    """Capability/resource/detail members every stub tool needs."""
+
+    capability: Capability = "write"
+
+    def resource(self, arguments: dict) -> tuple[str, ...]:
+        return ("stub",)
+
+    def detail(self, arguments: dict) -> object | None:
+        return None
+
+
+class _StubTool(_PolicyStub):
     """A simple test tool that returns a fixed response."""
 
     def __init__(
@@ -188,7 +200,7 @@ async def test_run_denied_tool_call_short_circuits_without_calling_tool():
     session = _session_with_user("call a tool")
     sink = RecordingSink()
 
-    class _RaisingTool:
+    class _RaisingTool(_PolicyStub):
         """A tool that would fail the test if call() were ever invoked."""
 
         name: ClassVar[str] = "get_info"
@@ -298,7 +310,7 @@ async def test_run_ask_deny_produces_error_result_without_calling_tool():
     session = _session_with_user("call a tool")
     sink = RecordingSink()
 
-    class _RaisingTool:
+    class _RaisingTool(_PolicyStub):
         name: ClassVar[str] = "write_file"
         description: ClassVar[str] = "test"
         input_schema: ClassVar[dict] = {"type": "object", "properties": {}}

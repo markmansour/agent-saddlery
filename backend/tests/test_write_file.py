@@ -173,3 +173,12 @@ async def test_tool_attributes(tmp_path):
     assert "required" in tool.input_schema
     assert "path" in tool.input_schema["required"]
     assert "content" in tool.input_schema["required"]
+
+
+def test_write_file_declares_write_capability():
+    assert FileWriteTool().capability == "write"
+
+
+def test_write_file_resource_is_normalized_path_parts(tmp_path):
+    tool = FileWriteTool(root=tmp_path)
+    assert tool.resource({"path": "Docs/A.md", "content": "x"}) == ("docs", "a.md")

@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
-from saddlery.tools.base import Tool, ToolExecutionResult
+from saddlery.tools.base import Capability, Tool, ToolExecutionResult
+from saddlery.tools.paths import path_resource
 
 
 class FileWriteTool(Tool):
     """Write text content to a file (UTF-8), creating or overwriting it."""
+
+    capability: Capability = "write"
 
     def __init__(self, root: Path | None = None) -> None:
         self.root = root or Path.cwd()
@@ -28,6 +32,9 @@ class FileWriteTool(Tool):
             },
             "required": ["path", "content"],
         }
+
+    def resource(self, arguments: dict) -> tuple[str, ...]:
+        return path_resource(self.root, arguments)
 
     async def call(self, arguments: dict) -> ToolExecutionResult:
         """Write content to a file, or return an error if it fails.
@@ -73,7 +80,13 @@ class FileWriteTool(Tool):
                     is_error=True,
                 )
 
-            target_path.write_text(content, encoding="utf-8")
+            fd = os.open(
+                target_path,
+                os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW,
+                0o666,
+            )
+            with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                handle.write(content)
             return ToolExecutionResult(f"Wrote {len(content)} bytes to {path_str}")
 
         except FileNotFoundError:

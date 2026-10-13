@@ -4,11 +4,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from saddlery.tools.base import Tool, ToolExecutionResult
+from saddlery.tools.base import Capability, Tool, ToolExecutionResult
+from saddlery.tools.paths import path_resource
 
 
 class FileReadTool(Tool):
     """Read the contents of a text file (UTF-8)."""
+
+    capability: Capability = "read"
 
     def __init__(self, root: Path | None = None) -> None:
         self.root = root or Path.cwd()
@@ -24,6 +27,9 @@ class FileReadTool(Tool):
             },
             "required": ["path"],
         }
+
+    def resource(self, arguments: dict) -> tuple[str, ...]:
+        return path_resource(self.root, arguments)
 
     async def call(self, arguments: dict) -> ToolExecutionResult:
         """Read a file and return its contents, or an error if it fails.

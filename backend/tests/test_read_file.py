@@ -185,3 +185,20 @@ async def test_tool_attributes(tmp_path):
     assert "path" in tool.input_schema["properties"]
     assert "required" in tool.input_schema
     assert "path" in tool.input_schema["required"]
+
+
+def test_read_file_declares_read_capability():
+    assert FileReadTool().capability == "read"
+
+
+def test_read_file_resource_is_normalized_path_parts(tmp_path):
+    tool = FileReadTool(root=tmp_path)
+    assert tool.resource({"path": "Docs/A.md"}) == ("docs", "a.md")
+
+
+def test_read_file_resource_rejects_escape(tmp_path):
+    from saddlery.tools.base import ResourceError
+
+    tool = FileReadTool(root=tmp_path)
+    with pytest.raises(ResourceError):
+        tool.resource({"path": "../x"})
