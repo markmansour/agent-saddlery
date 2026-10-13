@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 
 from saddlery.agent import Agent
 from saddlery.cli.input import read_input_lines, read_user_messages_interactive
+from saddlery.cli.runner import SessionRunner
 from saddlery.events import UserMessage
 from saddlery.llm.anthropic_provider import AnthropicProvider
 from saddlery.llm.mock_provider import MockLMProvider
@@ -77,29 +78,16 @@ async def _amain() -> int:
 
     # Determine input mode: JSON (for TUI) or interactive (for CLI)
     use_json = _use_json_input()
+    runner = SessionRunner(agent, session, sink)
 
-    # Scheduled as a background task (not awaited inline) so the loop keeps reading
-    # stdin while a run is suspended on a pending permission ask — see resolve_permission().
-    # Assumes one turn in flight at a time: the TUI enforces this by disabling input
-    # until run_finish, but nothing here re-checks it if a second user_message arrived
-    # while pending_run is still running, the prior task would be overwritten unawaited.
-    pending_run: asyncio.Task | None = None
     try:
         if use_json:
             async for event_type, payload in read_input_lines():
                 if event_type == "user_message":
-                    session.append(
-                        UserMessage(
-                            session_id=session.session_id,
-                            principal=principal,
-                            content=payload["content"],
-                        )
-                    )
-                    pending_run = asyncio.ensure_future(agent.run(session, sink))
+                    runner.submit(payload["content"])
                 elif event_type == "permission_decision":
                     await agent.resolve_permission(payload["tool_call_id"], payload["decision"])
-            if pending_run is not None:
-                await pending_run
+            await runner.wait()
         else:
             print("Agent Saddlery — 0.1 echo loop. Type a message; Ctrl-D to exit.")
             async for text in read_user_messages_interactive():
